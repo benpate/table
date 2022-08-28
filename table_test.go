@@ -38,7 +38,7 @@ func ExampleTable() {
 		{"name": "Sarah Connor", "age": 45},
 	}
 
-	table := New(&s, &f, &data, "", true, "http://localhost/update-form")
+	table := New(&s, &f, &data, "", false, "http://localhost/update-form")
 
 	// Render the form
 	var buffer bytes.Buffer
