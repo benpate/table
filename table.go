@@ -24,6 +24,7 @@ type Table struct {
 	Object    any            // Object containing the table data
 	Path      string         // Path to the data in the object
 	TargetURL string         // URL to send the form data to
+	Icons     IconProvider   // IconProvider generates HTML for icons
 
 	// Optional Fields
 	LookupProvider form.LookupProvider // Optional dependency to provide lookup data for fields
@@ -33,16 +34,17 @@ type Table struct {
 }
 
 // New returns a fully initialiized Table widget (with all required fields)
-func New(schema *schema.Schema, form *form.Element, object any, path string, editable bool, targetURL string) Table {
+func New(schema *schema.Schema, form *form.Element, object any, path string, iconProvider IconProvider, targetURL string) Table {
 	return Table{
 		Schema:    schema,
 		Form:      form,
 		Object:    object,
 		Path:      path,
 		TargetURL: targetURL,
-		CanAdd:    editable,
-		CanEdit:   editable,
-		CanDelete: editable,
+		Icons:     iconProvider,
+		CanAdd:    true,
+		CanEdit:   true,
+		CanDelete: true,
 	}
 }
 
@@ -114,7 +116,7 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 	const location = "table.Widget.drawTable"
 
 	// Try to locate (and validate) that we have a usable schema for a table
-	value, tableElement, err := widget.Schema.Get(widget.Object, widget.Path)
+	tableElement, err := widget.Schema.GetElement(widget.Path)
 
 	if err != nil {
 		return derp.Wrap(err, location, "Failed to locate table schema", widget.Path)
@@ -124,6 +126,8 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 	if _, ok := tableElement.(schema.Array); !ok {
 		return derp.NewInternalError(location, "Table schema must be an array", widget.Path, tableElement)
 	}
+
+	value, _ := widget.Schema.Get(widget.Object, widget.Path)
 
 	// Collect metadata
 	arraySchema := schema.New(tableElement)
@@ -153,43 +157,58 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 		editRow.Unset()
 	}
 
-	// Begin rendering the table
+	columnCount := len(widget.Form.Children)
+	columnWidth := convert.String(100/columnCount) + "%"
+
+	// Begin rendering the widget
 	b := html.New()
 
+	// Wrapper
 	if editRow.IsPresent() {
 		b.Form("", "").
+			Class("grid").
 			Data("hx-post", widget.getURL("edit", editRow.Int())).
 			Data("hx-target", "this").
 			Data("hx-swap", "outerHTML").
 			Data("hx-push_url", "false")
 
-		b.Table()
 	} else {
-		b.Table().
+
+		b.Div().
+			Class("grid").
 			Data("hx-target", "this").
 			Data("hx-swap", "outerHTML").
 			Data("hx-push_url", "false")
 	}
 
+	// Table
+	b.Table().
+		Class("grid")
+
 	// Header row
-	b.TR()
+	b.TR().Class("grid-header")
 	for _, field := range widget.Form.Children {
-		b.TH().InnerHTML(field.Label).Close()
+		b.TD().Class("grid-cell").Style("width:" + columnWidth)
+		b.Div().InnerHTML(field.Label).Close()
+		b.Close() // TD
 	}
-	b.TH().Close()
+	b.TD().Class("grid-cell", "grid-controls").Close()
 	b.Close() // TR
+
+	rowElement, err := arraySchema.GetElement("0")
+
+	if err != nil {
+		return derp.Wrap(err, location, "Failed to locate row schema", widget.Path)
+	}
+
+	rowSchema := schema.New(rowElement)
 
 	// Data rows
 	for rowIndex := 0; rowIndex < length; rowIndex++ {
 
 		// Get the data for this row
-		rowData, rowElement, err := arraySchema.Get(valueOf, strconv.Itoa(rowIndex))
 
-		if err != nil {
-			return derp.Wrap(err, location, "Failed to locate row schema", widget.Path, rowIndex)
-		}
-
-		rowSchema := schema.New(rowElement)
+		rowData, _ := arraySchema.Get(valueOf, strconv.Itoa(rowIndex))
 
 		if widget.CanEdit && editRow.IsPresent() && (editRow.Int() == rowIndex) {
 
@@ -206,8 +225,19 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 	}
 
 	// If we're not editing an existing row, then let users add a new row
-	if widget.CanAdd && (editRow.Int() == length) {
-		widget.drawAddRow(widget.Schema, b.SubTree())
+	if widget.CanAdd {
+		if addRow {
+			widget.drawAddRow(&rowSchema, b.SubTree())
+		} else {
+			b.Close() // TABLE
+			b.Div()
+			b.Button().
+				Type("button").
+				Data("hx-get", widget.getURL("add", length)).
+				InnerHTML(widget.Icons.Get("plus") + " Add a Row")
+			b.Close() // Button
+			b.Close() // Div
+		}
 	}
 
 	b.CloseAll()
@@ -224,20 +254,21 @@ func (widget Table) drawAddRow(rowSchema *schema.Schema, b *html.Builder) {
 		return
 	}
 
-	b.TR().Class("add")
+	b.TR().Class("grid-row", "grid-editable")
 
 	for _, field := range widget.Form.Children {
-		b.TD()
-		field.WriteHTML(rowSchema, nil, nil, b.SubTree())
-		b.Close() // .cell
+		b.TD().Class("grid-cell", "grid-editable")
+		field.Edit(rowSchema, widget.LookupProvider, nil, b.SubTree())
+		b.Close() // TD
 	}
 
-	b.TD().Class("align-right", "text-lg")
-	b.I("ti", "ti-circle-plus").Role("button").Close()
+	b.TD().Class("grid-cell", "grid-editable", "grid-controls")
+	b.Button().Type("submit").Class("text-green").InnerHTML(widget.Icons.Get("save")).Close()
+	b.Space()
+	b.Button().Type("button").Data("hx-get", widget.TargetURL).InnerHTML(widget.Icons.Get("cancel")).Close()
+	b.Close() // TD
 
-	b.Close() // .cell
-	// b.Close() // .row
-	b.Close() // form
+	b.Close() // TR
 }
 
 func (widget Table) drawEditRow(rowSchema *schema.Schema, rowData any, b *html.Builder) error {
@@ -247,28 +278,19 @@ func (widget Table) drawEditRow(rowSchema *schema.Schema, rowData any, b *html.B
 		return derp.NewInternalError("table.Widget.drawEditRow", "Editing is not allowed.  THIS SHOULD NEVER HAPPEN")
 	}
 
-	b.TR().Class("edit")
+	b.TR().Class("grid-row", "grid-editable")
 
 	for _, field := range widget.Form.Children {
-		b.TD()
-		field.WriteHTML(rowSchema, widget.LookupProvider, rowData, b.SubTree())
-		b.Close() // .cell
+		b.TD().Class("grid-cell", "grid-editable")
+		field.Edit(rowSchema, widget.LookupProvider, rowData, b.SubTree())
+		b.Close() // TD
 	}
 
 	// Write actions column
-	b.TD().Class("align-right", "text-lg")
-	b.I("ti", "ti-circle-check", "text-green").
-		Role("button").
-		Type("submit").
-		Close()
-
+	b.TD().Class("grid-cell", "grid-editable", "grid-controls")
+	b.Button().Type("submit").Class("text-green").InnerHTML(widget.Icons.Get("save")).Close()
 	b.Space()
-
-	b.I("ti", "ti-x", "text-red").
-		Role("button").
-		Data("hx-get", widget.TargetURL).
-		Close()
-
+	b.Button().Type("button").Data("hx-get", widget.TargetURL).InnerHTML(widget.Icons.Get("cancel")).Close()
 	b.Close() // TR
 
 	return nil
@@ -276,38 +298,41 @@ func (widget Table) drawEditRow(rowSchema *schema.Schema, rowData any, b *html.B
 
 func (widget Table) drawViewRow(rowSchema *schema.Schema, rowIndex int, rowData any, b *html.Builder) error {
 
-	row := b.TR().Class("hover-trigger")
-
-	if widget.CanEdit {
-		row.Role("button").Data("hx-get", widget.getURL("edit", rowIndex)).Data("hx-trigger", "click")
-	}
+	b.TR().Class("grid-row", "hover-trigger")
 
 	for _, field := range widget.Form.Children {
 
-		b.TD()
-		field.WriteHTML(rowSchema, widget.LookupProvider, rowData, b.SubTree())
+		cell := b.TD().Class("grid-cell")
+
+		if widget.CanEdit {
+			cell.Data("hx-get", widget.getURL("edit", rowIndex)).Data("hx-trigger", "click")
+		}
+
+		field.View(rowSchema, widget.LookupProvider, rowData, b.SubTree())
 		b.Close() // TD
 	}
 
-	b.Div().Role("cell").Class("align-right", "text-lg")
+	b.TD().Class("grid-cell", "grid-controls")
 
 	if widget.CanEdit {
-		b.I("ti", "ti-pencil").
+		b.Button().
+			Type("button").
 			Data("hx-get", widget.getURL("edit", rowIndex)).
+			InnerHTML(widget.Icons.Get("edit")).
 			Close()
 	}
 
 	if widget.CanDelete {
 		b.Space()
-		b.I("ti", "ti-trash").
-			Role("button").
-			Data("hx-confirm", "Are you sure you want to delete this row?").
+		b.Button().
+			Type("button").
 			Data("hx-post", widget.getURL("delete", rowIndex)).
-			Close()
+			Data("hx-confirm", "Are you sure you want to delete this row?").
+			InnerHTML(widget.Icons.Get("delete")).Close()
 	}
 
-	b.Close() // .cell
-	b.Close() // .row
+	b.Close() // TD
+	b.Close() // TR
 
 	return nil
 }
@@ -321,7 +346,7 @@ func (widget *Table) DoEdit(data maps.Map, editIndex int) error {
 
 	const location = "table.Widget.DoEdit"
 
-	rowData, _, err := widget.Schema.Get(data, strconv.Itoa(editIndex))
+	rowData, err := widget.Schema.Get(data, strconv.Itoa(editIndex))
 
 	if err != nil {
 		return derp.Wrap(err, location, "Failed to locate row schema", widget.Path, editIndex)
@@ -415,5 +440,10 @@ func (widget *Table) UseLookupProvider(lookupProvider form.LookupProvider) *Tabl
 
 // getURL returns a safe URL to use in callbacks.
 func (widget *Table) getURL(action string, row int) string {
+
+	if action == "view" {
+		return widget.TargetURL
+	}
+
 	return widget.TargetURL + "?" + action + "=" + convert.String(row)
 }

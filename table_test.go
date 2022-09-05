@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/benpate/form"
+	"github.com/benpate/icon/bootstrap"
 	"github.com/benpate/rosetta/maps"
 	"github.com/benpate/rosetta/null"
 	"github.com/benpate/rosetta/schema"
@@ -38,7 +39,7 @@ func ExampleTable() {
 		{"name": "Sarah Connor", "age": 45},
 	}
 
-	table := New(&s, &f, &data, "", false, "http://localhost/update-form")
+	table := New(&s, &f, &data, "", bootstrap.Provider{}, "http://localhost/update-form")
 
 	// Render the form
 	var buffer bytes.Buffer
