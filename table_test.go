@@ -1,7 +1,6 @@
 package table
 
 import (
-	"bytes"
 	"fmt"
 
 	"github.com/benpate/form"
@@ -13,7 +12,7 @@ import (
 
 func ExampleTable() {
 
-	// Define a data schema to retrieve and validate the data
+	// Data schema defines the layout of the data.
 	s := schema.New(schema.Array{
 		MaxLength: null.NewInt(10),
 		Items: schema.Object{
@@ -24,9 +23,9 @@ func ExampleTable() {
 		},
 	})
 
-	// Define a UI schema to render the form
+	// UI schema defines which field are displayed, and in which order
 	f := form.Element{
-		Type: "table",
+		Type: "layout-vertical",
 		Children: []form.Element{
 			{Type: "text", Label: "Name", Path: "name"},
 			{Type: "number", Label: "Age", Path: "age"},
@@ -39,15 +38,7 @@ func ExampleTable() {
 		{"name": "Sarah Connor", "age": 45},
 	}
 
+	// Create the new table and render it in HTML
 	table := New(&s, &f, &data, "", bootstrap.Provider{}, "http://localhost/update-form")
-
-	// Render the form
-	var buffer bytes.Buffer
-
-	if err := table.DrawView(&buffer); err != nil {
-		fmt.Println(err)
-	}
-
-	// Output:
-	fmt.Println(buffer.String())
+	fmt.Println(table.DrawViewString())
 }
