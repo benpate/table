@@ -7,18 +7,6 @@ This repository implements a table/grid control with inline editing.  Tables are
 Tables work similar to other [form widgets](https://github.com/benpate/form), and require that you defined both a [data schema](https://github.com/benpate/rosetta/tree/main/schema) and a [UI schema](https://github.com/benpate/form) in order to render them.
 
 ```go
-package table
-
-import (
-	"fmt"
-
-	"github.com/benpate/form"
-	"github.com/benpate/icon/bootstrap"
-	"github.com/benpate/rosetta/maps"
-	"github.com/benpate/rosetta/null"
-	"github.com/benpate/rosetta/schema"
-)
-
 func ExampleTable() {
 
 	// Data schema defines the layout of the data.
