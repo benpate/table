@@ -115,12 +115,12 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 	length := convert.SliceLength(value)
 
 	// Only allow ADDs if the table is smaller than the maximum value
-	if tableElement.MaxLength.IsPresent() && (length >= tableElement.MaxLength.Int()) {
+	if (tableElement.MaxLength > 0) && (length >= tableElement.MaxLength) {
 		widget.CanAdd = false
 	}
 
 	// Only allow DELETEs if the table is larger than the minimum value
-	if length <= tableElement.MinLength.Int() {
+	if length <= tableElement.MinLength {
 		widget.CanDelete = false
 	}
 
