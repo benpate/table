@@ -2,11 +2,10 @@ package table
 
 import (
 	"fmt"
+	"testing"
 
 	"github.com/benpate/form"
-	"github.com/benpate/icon/bootstrap"
 	"github.com/benpate/rosetta/maps"
-	"github.com/benpate/rosetta/null"
 	"github.com/benpate/rosetta/schema"
 )
 
@@ -14,7 +13,7 @@ func ExampleTable() {
 
 	// Data schema defines the layout of the data.
 	s := schema.New(schema.Array{
-		MaxLength: null.NewInt(10),
+		MaxLength: 10,
 		Items: schema.Object{
 			Properties: schema.ElementMap{
 				"name": schema.String{},
@@ -39,6 +38,10 @@ func ExampleTable() {
 	}
 
 	// Create the new table and render it in HTML
-	table := New(&s, &f, &data, "", bootstrap.Provider{}, "http://localhost/update-form")
+	table := New(&s, &f, &data, "", testIconProvider{}, "http://localhost/update-form")
 	fmt.Println(table.DrawViewString())
+}
+
+func TestTable(t *testing.T) {
+	ExampleTable()
 }
