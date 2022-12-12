@@ -105,7 +105,7 @@ func (widget *Table) getURL(action string, row int) string {
 func (widget *Table) getTableElement() (schema.Array, error) {
 
 	if widget.Schema == nil {
-		return schema.Array{}, derp.New(derp.CodeInternalError, "table.Widget.getTableElement", "Schema is nil", widget.Path)
+		return schema.Array{}, derp.NewInternalError("table.Widget.getTableElement", "Schema is nil", widget.Path)
 	}
 
 	element, err := widget.Schema.GetElement(widget.Path)
@@ -122,9 +122,3 @@ func (widget *Table) getTableElement() (schema.Array, error) {
 
 	return arrayElement, nil
 }
-
-/*
-func (widget *Table) getRowElement() schema.Element {
-	return widget.getTableElement().Items
-}
-*/
