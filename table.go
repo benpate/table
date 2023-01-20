@@ -108,16 +108,16 @@ func (widget *Table) getTableElement() (schema.Array, error) {
 		return schema.Array{}, derp.NewInternalError("table.Widget.getTableElement", "Schema is nil", widget.Path)
 	}
 
-	element, err := widget.Schema.GetElement(widget.Path)
+	element, ok := widget.Schema.GetElement(widget.Path)
 
-	if err != nil {
-		return schema.Array{}, derp.Wrap(err, "table.Widget.getTableElement", "Failed to get table element", widget.Path)
+	if !ok {
+		return schema.Array{}, derp.NewInternalError("table.Widget.getTableElement", "Failed to get table element", widget.Path)
 	}
 
 	arrayElement, ok := element.(schema.Array)
 
 	if !ok {
-		return schema.Array{}, derp.NewBadRequestError("table.Widget.getTableElement", "Table element is not an array", widget.Path)
+		return schema.Array{}, derp.NewInternalError("table.Widget.getTableElement", "Table element is not an array", widget.Path)
 	}
 
 	return arrayElement, nil

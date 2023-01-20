@@ -96,8 +96,8 @@ func (widget *Table) DoDelete(deleteIndex int) error {
 
 	path := list.ByDot(widget.Path, strconv.Itoa(deleteIndex)).String()
 
-	if err := widget.Schema.Remove(widget.Object, path); err != nil {
-		return derp.Wrap(err, location, "Error removing value from table")
+	if ok := widget.Schema.Remove(widget.Object, path); !ok {
+		return derp.NewInternalError(location, "Error removing value from table")
 	}
 
 	return nil
