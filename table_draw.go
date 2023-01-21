@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"io"
 	"net/url"
-	"reflect"
 	"strconv"
 
 	"github.com/benpate/derp"
@@ -111,7 +110,6 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 	rowSchema := schema.New(rowElement)
 
 	value, _ := widget.Schema.Get(widget.Object, widget.Path)
-	valueOf := reflect.ValueOf(value)
 	length := convert.SliceLength(value)
 
 	// Only allow ADDs if the table is smaller than the maximum value
@@ -125,7 +123,7 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 	}
 
 	//
-	// VERIFY PERMISSIONS HERE
+	// Verify Permissions Here
 	//
 
 	if widget.CanAdd && addRow {
@@ -188,10 +186,10 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 	// Data rows
 	for rowIndex := 0; rowIndex < length; rowIndex++ {
 
-		rowData, err := tableSchema.Get(valueOf, strconv.Itoa(rowIndex))
+		rowData, err := tableSchema.Get(value, strconv.Itoa(rowIndex))
 
 		if err != nil {
-			return derp.Wrap(err, location, "Error getting row data", rowIndex)
+			return derp.Wrap(err, location, "Error getting row data", tableSchema, value, rowIndex, length)
 		}
 
 		if widget.CanEdit && editRow.IsPresent() && (editRow.Int() == rowIndex) {
