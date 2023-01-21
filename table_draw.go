@@ -109,16 +109,16 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 	tableSchema := schema.New(tableElement)
 	rowSchema := schema.New(rowElement)
 
-	value, _ := widget.Schema.Get(widget.Object, widget.Path)
-	length := convert.SliceLength(value)
+	tableValue, _ := widget.Schema.Get(widget.Object, widget.Path)
+	tableLength := convert.SliceLength(tableValue)
 
 	// Only allow ADDs if the table is smaller than the maximum value
-	if (tableElement.MaxLength > 0) && (length >= tableElement.MaxLength) {
+	if (tableElement.MaxLength > 0) && (tableLength >= tableElement.MaxLength) {
 		widget.CanAdd = false
 	}
 
 	// Only allow DELETEs if the table is larger than the minimum value
-	if length <= tableElement.MinLength {
+	if tableLength <= tableElement.MinLength {
 		widget.CanDelete = false
 	}
 
@@ -129,13 +129,13 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 	if widget.CanAdd && addRow {
 
 		// If adding is allowed and requested, then set the editable row to a new row at the end of the table
-		editRow.Set(length)
+		editRow.Set(tableLength)
 
 	} else if widget.CanEdit && editRow.IsPresent() {
 
 		// If editing is allowed and requested, then bounds check the editRow
 		// If the editRow is out of bounds, then use view-only mode
-		if (editRow.Int() < 0) || (editRow.Int() >= length) {
+		if (editRow.Int() < 0) || (editRow.Int() >= tableLength) {
 			editRow.Unset()
 		}
 
@@ -184,23 +184,23 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 	b.Close() // TR
 
 	// Data rows
-	for rowIndex := 0; rowIndex < length; rowIndex++ {
+	for rowIndex := 0; rowIndex < tableLength; rowIndex++ {
 
-		rowData, err := tableSchema.Get(value, strconv.Itoa(rowIndex))
+		rowValue, err := tableSchema.Get(tableValue, strconv.Itoa(rowIndex))
 
 		if err != nil {
-			return derp.Wrap(err, location, "Error getting row data", tableSchema, value, rowIndex, length)
+			return derp.Wrap(err, location, "Error getting row data", tableSchema, tableValue, rowIndex, tableLength)
 		}
 
 		if widget.CanEdit && editRow.IsPresent() && (editRow.Int() == rowIndex) {
 
-			if err := widget.drawEditRow(&rowSchema, rowData, b.SubTree()); err != nil {
+			if err := widget.drawEditRow(&rowSchema, rowValue, b.SubTree()); err != nil {
 				return derp.Wrap(err, location, "Failed to draw row (edit)", widget.Path, rowIndex)
 			}
 
 		} else {
 
-			if err := widget.drawViewRow(&rowSchema, rowIndex, rowData, b.SubTree()); err != nil {
+			if err := widget.drawViewRow(&rowSchema, rowIndex, rowValue, b.SubTree()); err != nil {
 				return derp.Wrap(err, location, "Failed to draw row (view)", widget.Path, rowIndex)
 			}
 		}
@@ -216,7 +216,7 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 			b.Button().
 				Type("button").
 				Class("link").
-				Data("hx-get", widget.getURL("add", length)).
+				Data("hx-get", widget.getURL("add", tableLength)).
 				InnerHTML(widget.Icons.Get("plus") + " Add a Row")
 			b.Close() // Button
 			b.Close() // Div
@@ -254,7 +254,7 @@ func (widget *Table) drawAddRow(rowSchema *schema.Schema, b *html.Builder) {
 	b.Close() // TR
 }
 
-func (widget *Table) drawEditRow(rowSchema *schema.Schema, rowData any, b *html.Builder) error {
+func (widget *Table) drawEditRow(rowSchema *schema.Schema, rowValue any, b *html.Builder) error {
 
 	// Paranoid double-check
 	if !widget.CanEdit {
@@ -265,7 +265,7 @@ func (widget *Table) drawEditRow(rowSchema *schema.Schema, rowData any, b *html.
 
 	for _, field := range widget.Form.Children {
 		b.TD().Class("grid-cell", "grid-editable")
-		field.Edit(rowSchema, widget.LookupProvider, rowData, b.SubTree())
+		field.Edit(rowSchema, widget.LookupProvider, rowValue, b.SubTree())
 		b.Close() // TD
 	}
 
@@ -279,7 +279,7 @@ func (widget *Table) drawEditRow(rowSchema *schema.Schema, rowData any, b *html.
 	return nil
 }
 
-func (widget *Table) drawViewRow(rowSchema *schema.Schema, rowIndex int, rowData any, b *html.Builder) error {
+func (widget *Table) drawViewRow(rowSchema *schema.Schema, rowIndex int, rowValue any, b *html.Builder) error {
 
 	b.TR().Class("grid-row", "hover-trigger")
 
@@ -291,7 +291,7 @@ func (widget *Table) drawViewRow(rowSchema *schema.Schema, rowIndex int, rowData
 			cell.Data("hx-get", widget.getURL("edit", rowIndex)).Data("hx-trigger", "click")
 		}
 
-		field.View(rowSchema, widget.LookupProvider, rowData, b.SubTree())
+		field.View(rowSchema, widget.LookupProvider, rowValue, b.SubTree())
 		b.Close() // TD
 	}
 
