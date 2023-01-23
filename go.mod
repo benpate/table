@@ -4,9 +4,9 @@ go 1.19
 
 require (
 	github.com/benpate/derp v0.27.0
-	github.com/benpate/form v0.14.0
+	github.com/benpate/form v0.14.1
 	github.com/benpate/html v0.15.0
-	github.com/benpate/rosetta v0.10.0
+	github.com/benpate/rosetta v0.11.1
 )
 
 require (

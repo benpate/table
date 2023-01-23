@@ -7,14 +7,13 @@ import (
 	"github.com/benpate/derp"
 	"github.com/benpate/rosetta/convert"
 	"github.com/benpate/rosetta/list"
-	"github.com/benpate/rosetta/maps"
 )
 
 /********************************
  * Update/Delete Methods
  ********************************/
 
-func (widget *Table) Do(queryParams *url.URL, data maps.Map) error {
+func (widget *Table) Do(queryParams *url.URL, data map[string]any) error {
 
 	if edit := queryParams.Query().Get("edit"); edit != "" {
 
@@ -37,7 +36,7 @@ func (widget *Table) Do(queryParams *url.URL, data maps.Map) error {
 }
 
 // DoEdit applies a dataset to the requested row in the table
-func (widget *Table) DoEdit(data maps.Map, editIndex int) error {
+func (widget *Table) DoEdit(data map[string]any, editIndex int) error {
 
 	const location = "table.Widget.DoEdit"
 

@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/benpate/form"
-	"github.com/benpate/rosetta/maps"
 	"github.com/benpate/rosetta/schema"
 )
 
@@ -32,7 +31,7 @@ func ExampleTable() {
 	}
 
 	// Define some data to render
-	data := []maps.Map{
+	data := []map[string]any{
 		{"name": "John Connor", "age": 20},
 		{"name": "Sarah Connor", "age": 45},
 	}

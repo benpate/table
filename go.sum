@@ -2,12 +2,12 @@ github.com/aymerick/douceur v0.2.0 h1:Mv+mAeH1Q+n9Fr+oyamOlAkUNPWPlA8PPGR0QAaYuP
 github.com/aymerick/douceur v0.2.0/go.mod h1:wlT5vV2O3h55X9m7iVYN0TBM0NH/MmbLnd30/FjWUq4=
 github.com/benpate/derp v0.27.0 h1:qjKlTC2gv5MtqFgz2vSGWoz2WyMNT6i2ALyIyBJ7s6Q=
 github.com/benpate/derp v0.27.0/go.mod h1:Qrtco2SAercNzKqb6WsaXvxn1E+/4DHBaWB+BwehJAo=
-github.com/benpate/form v0.14.0 h1:E5c8f3oprOYuL13ufyRXy3ynO6mOzI0J7mM5+Z0JuPc=
-github.com/benpate/form v0.14.0/go.mod h1:+xdvw93izjdmF6jAkFHgMym87ytyKoLupADxqILgCqw=
+github.com/benpate/form v0.14.1 h1:gSP8+Y3cUB3HCJv5T+kdcwg9vYGdjNh6bQsrmlTzIhk=
+github.com/benpate/form v0.14.1/go.mod h1:azOrp5SYnRajBuUQHp8tLrhgIF+oZ4ulRYz558EjIaM=
 github.com/benpate/html v0.15.0 h1:E8ePO2XMf2P/WgTRSaEI1H3Rb4EzvrfbU4wTW6Svq3s=
 github.com/benpate/html v0.15.0/go.mod h1:i5RSHmjum4SB9Xa1nGlDRZVmu7313iBBd80boQiLxFw=
-github.com/benpate/rosetta v0.10.0 h1:UrU/I2asPg5SeVY6mUdvMJkwuCzbihFIicRuNwDX090=
-github.com/benpate/rosetta v0.10.0/go.mod h1:OQPkr/pkQ0lTehXAhG7tKNeYp4ovxdi7uvXzxPUbxUY=
+github.com/benpate/rosetta v0.11.1 h1:XCC7TqQwTxGY0IeVmzMJTm4F/iKvXxZnn38S9mdPGUI=
+github.com/benpate/rosetta v0.11.1/go.mod h1:OQPkr/pkQ0lTehXAhG7tKNeYp4ovxdi7uvXzxPUbxUY=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/gorilla/css v1.0.0 h1:BQqNyPTi50JCFMTw/b67hByjMVXZRwGha6wxVGkeihY=
 github.com/gorilla/css v1.0.0/go.mod h1:Dn721qIggHpt4+EFCcTLTU/vk5ySda2ReITrtgBl60c=
