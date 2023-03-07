@@ -177,7 +177,7 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 		if width, ok := field.Options["column-width"]; ok {
 			td.Style("width", convert.String(width))
 		}
-		b.Div().InnerHTML(field.Label).Close()
+		b.Div().InnerText(field.Label).Close()
 		b.Close() // TD
 	}
 	b.TD().Class("grid-cell", "grid-controls").Close()
