@@ -71,7 +71,7 @@ func (widget *Table) DrawAddString() (string, error) {
 	var buffer bytes.Buffer
 
 	if err := widget.DrawAdd(&buffer); err != nil {
-		return "", derp.Wrap(err, "table.Widget.ViewString", "Error rendering table")
+		return "", derp.Wrap(err, "table.Widget.DrawAddString", "Error rendering table")
 	}
 
 	return buffer.String(), nil
@@ -83,7 +83,7 @@ func (widget *Table) DrawEditString(index int) (string, error) {
 	var buffer bytes.Buffer
 
 	if err := widget.DrawEdit(index, &buffer); err != nil {
-		return "", derp.Wrap(err, "table.Widget.ViewString", "Error rendering table")
+		return "", derp.Wrap(err, "table.Widget.DrawEditString", "Error rendering table")
 	}
 
 	return buffer.String(), nil
@@ -209,7 +209,9 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 	// If we're not editing an existing row, then let users add a new row
 	if widget.CanAdd {
 		if addRow {
-			widget.drawAddRow(&rowSchema, b.SubTree())
+			if err := widget.drawAddRow(&rowSchema, b.SubTree()); err != nil {
+				return derp.Wrap(err, location, "Failed to draw row (add)", widget.Path, tableLength)
+			}
 		} else {
 			b.Close() // TABLE
 			b.Div()
@@ -225,23 +227,26 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 
 	b.CloseAll()
 
+	// nolint:errcheck // don't need to check errors writing to a buffer.
 	buffer.Write(b.Bytes())
 	return nil
 
 }
 
-func (widget *Table) drawAddRow(rowSchema *schema.Schema, b *html.Builder) {
+func (widget *Table) drawAddRow(rowSchema *schema.Schema, b *html.Builder) error {
 
 	// Paranoid double-check
 	if !widget.CanAdd {
-		return
+		return nil
 	}
 
 	b.TR().Class("grid-row", "grid-editable")
 
 	for _, field := range widget.Form.Children {
 		b.TD().Class("grid-cell", "grid-editable")
-		field.Edit(rowSchema, widget.LookupProvider, nil, b.SubTree())
+		if err := field.Edit(rowSchema, widget.LookupProvider, nil, b.SubTree()); err != nil {
+			return derp.Wrap(err, "table.Widget.drawAddRow", "Error rendering field", field)
+		}
 		b.Close() // TD
 	}
 
@@ -252,6 +257,7 @@ func (widget *Table) drawAddRow(rowSchema *schema.Schema, b *html.Builder) {
 	b.Close() // TD
 
 	b.Close() // TR
+	return nil
 }
 
 func (widget *Table) drawEditRow(rowSchema *schema.Schema, rowValue any, b *html.Builder) error {
@@ -265,7 +271,9 @@ func (widget *Table) drawEditRow(rowSchema *schema.Schema, rowValue any, b *html
 
 	for _, field := range widget.Form.Children {
 		b.TD().Class("grid-cell", "grid-editable")
-		field.Edit(rowSchema, widget.LookupProvider, rowValue, b.SubTree())
+		if err := field.Edit(rowSchema, widget.LookupProvider, rowValue, b.SubTree()); err != nil {
+			return derp.Wrap(err, "table.Widget.drawEditRow", "Error rendering field", field)
+		}
 		b.Close() // TD
 	}
 
@@ -291,7 +299,10 @@ func (widget *Table) drawViewRow(rowSchema *schema.Schema, rowIndex int, rowValu
 			cell.Data("hx-get", widget.getURL("edit", rowIndex)).Data("hx-trigger", "click")
 		}
 
-		field.View(rowSchema, widget.LookupProvider, rowValue, b.SubTree())
+		if err := field.View(rowSchema, widget.LookupProvider, rowValue, b.SubTree()); err != nil {
+			return derp.Wrap(err, "table.Widget.drawViewRow", "Error rendering field", field)
+		}
+
 		b.Close() // TD
 	}
 
