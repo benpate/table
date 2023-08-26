@@ -3,10 +3,10 @@ module github.com/benpate/table
 go 1.19
 
 require (
-	github.com/benpate/derp v0.27.2
-	github.com/benpate/form v0.16.1
+	github.com/benpate/derp v0.28.0
+	github.com/benpate/form v0.16.2
 	github.com/benpate/html v0.16.3
-	github.com/benpate/rosetta v0.17.0
+	github.com/benpate/rosetta v0.18.0
 )
 
 require (
