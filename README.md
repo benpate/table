@@ -1,5 +1,11 @@
 # Table 🍽
 
+[![GoDoc](https://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](http://pkg.go.dev/github.com/benpate/table)
+[![Version](https://img.shields.io/github/v/release/benpate/table?include_prereleases&style=flat-square&color=brightgreen)](https://github.com/benpate/table/releases)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/benpate/table/go.yml?style=flat-square)](https://github.com/benpate/table/actions/workflows/go.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/benpate/table?style=flat-square)](https://goreportcard.com/report/github.com/benpate/table)
+[![Codecov](https://img.shields.io/codecov/c/github/benpate/table.svg?style=flat-square)](https://codecov.io/gh/benpate/table)
+
 ## Inline editor grid component for Go and htmx.
 
 This repository implements a table/grid control with inline editing.  Tables are rendered on the server and swapped into the DOM via htmx `hx-get` and `hx-post` methods.
