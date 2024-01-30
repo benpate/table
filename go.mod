@@ -1,12 +1,14 @@
 module github.com/benpate/table
 
-go 1.20
+go 1.21
+
+toolchain go1.21.6
 
 require (
 	github.com/benpate/derp v0.30.0
-	github.com/benpate/form v0.17.9
+	github.com/benpate/form v0.17.10
 	github.com/benpate/html v0.16.4
-	github.com/benpate/rosetta v0.19.2
+	github.com/benpate/rosetta v0.19.4
 )
 
 require (
