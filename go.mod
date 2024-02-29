@@ -2,13 +2,11 @@ module github.com/benpate/table
 
 go 1.21
 
-toolchain go1.21.6
-
 require (
-	github.com/benpate/derp v0.30.0
-	github.com/benpate/form v0.17.10
+	github.com/benpate/derp v0.31.0
+	github.com/benpate/form v0.17.11
 	github.com/benpate/html v0.16.4
-	github.com/benpate/rosetta v0.19.4
+	github.com/benpate/rosetta v0.20.0
 )
 
 require (
@@ -16,5 +14,5 @@ require (
 	github.com/benpate/exp v0.8.3 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.26 // indirect
-	golang.org/x/net v0.20.0 // indirect
+	golang.org/x/net v0.21.0 // indirect
 )
