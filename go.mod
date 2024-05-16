@@ -4,8 +4,8 @@ go 1.21
 
 require (
 	github.com/benpate/derp v0.31.0
-	github.com/benpate/form v0.22.0
-	github.com/benpate/html v0.16.5
+	github.com/benpate/form v0.22.1
+	github.com/benpate/html v0.16.6
 	github.com/benpate/rosetta v0.21.0
 )
 
