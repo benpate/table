@@ -155,7 +155,7 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 			Data("hx-post", widget.getURL("edit", editRow.Int())).
 			Data("hx-target", "this").
 			Data("hx-swap", "outerHTML").
-			Data("hx-push_url", "false")
+			Data("hx-push-url", "false")
 
 	} else {
 
@@ -163,7 +163,7 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 			Class("grid").
 			Data("hx-target", "this").
 			Data("hx-swap", "outerHTML").
-			Data("hx-push_url", "false")
+			Data("hx-push-url", "false")
 	}
 
 	// Table
