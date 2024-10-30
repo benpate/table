@@ -111,7 +111,7 @@ func (widget *Table) getTableElement() (schema.Array, error) {
 	element, ok := widget.Schema.GetElement(widget.Path)
 
 	if !ok {
-		return schema.Array{}, derp.NewInternalError("table.Widget.getTableElement", "Failed to get table element", widget.Path)
+		return schema.Array{}, derp.NewInternalError("table.Widget.getTableElement", "Failed to get table element", widget.Schema, widget.Path)
 	}
 
 	arrayElement, ok := element.(schema.Array)
