@@ -6,9 +6,9 @@ toolchain go1.23.1
 
 require (
 	github.com/benpate/derp v0.31.0
-	github.com/benpate/form v0.22.7
+	github.com/benpate/form v0.22.8
 	github.com/benpate/html v0.16.11
-	github.com/benpate/rosetta v0.22.2
+	github.com/benpate/rosetta v0.22.3
 )
 
 require (
