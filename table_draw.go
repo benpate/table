@@ -19,6 +19,8 @@ import (
 
 func (widget *Table) Draw(params *url.URL, buffer io.Writer) error {
 
+	widget.focusColumn, _ = strconv.Atoi(params.Query().Get("focus"))
+
 	// Try to ADD a row
 	if params.Query().Get("add") == "true" {
 		return widget.DrawAdd(buffer)
@@ -152,7 +154,7 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 	if editRow.IsPresent() {
 		b.Form("", "").
 			Class("grid").
-			Data("hx-post", widget.getURL("edit", editRow.Int())).
+			Data("hx-post", widget.getURL("edit", editRow.Int(), 0)).
 			Data("hx-target", "this").
 			Data("hx-swap", "outerHTML").
 			Data("hx-push-url", "false")
@@ -218,7 +220,7 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 			b.Button().
 				Type("button").
 				Class("link").
-				Data("hx-get", widget.getURL("add", tableLength)).
+				Data("hx-get", widget.getURL("add", tableLength, 0)).
 				InnerHTML(widget.Icons.Get("plus") + " Add a Row")
 			b.Close() // Button
 			b.Close() // Div
@@ -242,13 +244,24 @@ func (widget *Table) drawAddRow(rowSchema *schema.Schema, b *html.Builder) error
 
 	b.TR().Class("grid-row", "grid-editable")
 
-	for _, field := range widget.Form.Children {
-		b.TD().Class("grid-cell", "grid-editable")
+	width := "width:calc(100% / " + strconv.Itoa(len(widget.Form.Children)) + ")"
+
+	for column, field := range widget.Form.Children {
+		b.TD().Class("grid-cell", "grid-editable").Style(width)
+
+		if column == 0 {
+			field.Options["focus"] = true
+		}
+
 		if err := field.Edit(rowSchema, widget.LookupProvider, nil, b.SubTree()); err != nil {
 			return derp.Wrap(err, "table.Widget.drawAddRow", "Error rendering field", field)
 		}
 		b.Close() // TD
 	}
+
+	// IDK why we have to do this, but the "focusColumn" is persisting
+	// after the loop completes.
+	delete(widget.Form.Children[widget.focusColumn].Options, "focus")
 
 	b.TD().Class("grid-cell", "grid-editable", "grid-controls")
 	b.Button().Type("submit").Class("text-green").InnerHTML(widget.Icons.Get("save")).Close()
@@ -269,13 +282,25 @@ func (widget *Table) drawEditRow(rowSchema *schema.Schema, rowValue any, b *html
 
 	b.TR().Class("grid-row", "grid-editable")
 
-	for _, field := range widget.Form.Children {
-		b.TD().Class("grid-cell", "grid-editable")
+	width := "width:calc(100% / " + strconv.Itoa(len(widget.Form.Children)) + ")"
+
+	for index, field := range widget.Form.Children {
+
+		b.TD().Class("grid-cell", "grid-editable").Style(width)
+
+		if index == widget.focusColumn {
+			field.Options["focus"] = true
+		}
+
 		if err := field.Edit(rowSchema, widget.LookupProvider, rowValue, b.SubTree()); err != nil {
 			return derp.Wrap(err, "table.Widget.drawEditRow", "Error rendering field", field)
 		}
 		b.Close() // TD
 	}
+
+	// IDK why we have to do this, but the "focusColumn" is persisting
+	// after the loop completes.
+	delete(widget.Form.Children[widget.focusColumn].Options, "focus")
 
 	// Write actions column
 	b.TD().Class("grid-cell", "grid-editable", "grid-controls")
@@ -291,12 +316,14 @@ func (widget *Table) drawViewRow(rowSchema *schema.Schema, rowIndex int, rowValu
 
 	b.TR().Class("grid-row", "hover-trigger")
 
-	for _, field := range widget.Form.Children {
+	width := "width:calc(100% / " + strconv.Itoa(len(widget.Form.Children)) + ")"
 
-		cell := b.TD().Class("grid-cell")
+	for colIndex, field := range widget.Form.Children {
+
+		cell := b.TD().Class("grid-cell").Style(width)
 
 		if widget.CanEdit {
-			cell.Data("hx-get", widget.getURL("edit", rowIndex)).Data("hx-trigger", "click")
+			cell.Data("hx-get", widget.getURL("edit", rowIndex, colIndex)).Data("hx-trigger", "click")
 		}
 
 		if err := field.View(rowSchema, widget.LookupProvider, rowValue, b.SubTree()); err != nil {
@@ -311,7 +338,7 @@ func (widget *Table) drawViewRow(rowSchema *schema.Schema, rowIndex int, rowValu
 	if widget.CanEdit {
 		b.Button().
 			Type("button").
-			Data("hx-get", widget.getURL("edit", rowIndex)).
+			Data("hx-get", widget.getURL("edit", rowIndex, 0)).
 			InnerHTML(widget.Icons.Get("edit")).
 			Close()
 	}
@@ -320,7 +347,7 @@ func (widget *Table) drawViewRow(rowSchema *schema.Schema, rowIndex int, rowValu
 		b.Space()
 		b.Button().
 			Type("button").
-			Data("hx-post", widget.getURL("delete", rowIndex)).
+			Data("hx-post", widget.getURL("delete", rowIndex, 0)).
 			Data("hx-confirm", "Are you sure you want to delete this row?").
 			InnerHTML(widget.Icons.Get("delete")).Close()
 	}

@@ -22,6 +22,8 @@ type Table struct {
 	CanAdd         bool                // If TRUE, then users can add new rows to the table
 	CanEdit        bool                // If TRUE, then users can edit existing rows in the table
 	CanDelete      bool                // If TRUE, then users can delete existing rows in the table
+
+	focusColumn int // Column to focus on when rendering the table
 }
 
 // New returns a fully initialiized Table widget (with all required fields)
@@ -88,13 +90,13 @@ func (widget *Table) UseLookupProvider(lookupProvider form.LookupProvider) *Tabl
  ********************************/
 
 // getURL returns a safe URL to use in callbacks.
-func (widget *Table) getURL(action string, row int) string {
+func (widget *Table) getURL(action string, row int, col int) string {
 
 	switch action {
 	case "add":
 		return widget.TargetURL + "?add=true"
 	case "edit":
-		return widget.TargetURL + "?edit=" + convert.String(row)
+		return widget.TargetURL + "?edit=" + convert.String(row) + "&focus=" + convert.String(col)
 	case "delete":
 		return widget.TargetURL + "?delete=" + convert.String(row)
 	default:
