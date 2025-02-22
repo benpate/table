@@ -9,7 +9,6 @@ require (
 	github.com/benpate/form v0.22.20
 	github.com/benpate/html v0.16.11
 	github.com/benpate/rosetta v0.24.6
-	github.com/davecgh/go-spew v1.1.1
 )
 
 require (
