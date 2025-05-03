@@ -9,6 +9,7 @@ import (
 	"github.com/benpate/derp"
 	"github.com/benpate/html"
 	"github.com/benpate/rosetta/convert"
+	"github.com/benpate/rosetta/mapof"
 	"github.com/benpate/rosetta/null"
 	"github.com/benpate/rosetta/schema"
 )
@@ -248,6 +249,10 @@ func (widget *Table) drawAddRow(rowSchema *schema.Schema, b *html.Builder) error
 
 	for column, field := range widget.Form.Children {
 		b.TD().Class("grid-cell", "grid-editable").Style(width)
+
+		if field.Options == nil {
+			field.Options = make(mapof.Any)
+		}
 
 		if column == 0 {
 			field.Options["focus"] = true
