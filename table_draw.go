@@ -293,6 +293,10 @@ func (widget *Table) drawEditRow(rowSchema *schema.Schema, rowValue any, b *html
 
 		b.TD().Class("grid-cell", "grid-editable").Style(width)
 
+		if field.Options == nil {
+			field.Options = make(mapof.Any)
+		}
+
 		if index == widget.focusColumn {
 			field.Options["focus"] = true
 		}
