@@ -282,7 +282,7 @@ func (widget *Table) drawEditRow(rowSchema *schema.Schema, rowValue any, b *html
 
 	// Paranoid double-check
 	if !widget.CanEdit {
-		return derp.NewInternalError("table.Widget.drawEditRow", "Editing is not allowed.  THIS SHOULD NEVER HAPPEN")
+		return derp.InternalError("table.Widget.drawEditRow", "Editing is not allowed.  THIS SHOULD NEVER HAPPEN")
 	}
 
 	b.TR().Class("grid-row", "grid-editable")

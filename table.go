@@ -107,19 +107,19 @@ func (widget *Table) getURL(action string, row int, col int) string {
 func (widget *Table) getTableElement() (schema.Array, error) {
 
 	if widget.Schema == nil {
-		return schema.Array{}, derp.NewInternalError("table.Widget.getTableElement", "Schema is nil", widget.Path)
+		return schema.Array{}, derp.InternalError("table.Widget.getTableElement", "Schema is nil", widget.Path)
 	}
 
 	element, ok := widget.Schema.GetElement(widget.Path)
 
 	if !ok {
-		return schema.Array{}, derp.NewInternalError("table.Widget.getTableElement", "Failed to get table element", widget.Schema, widget.Path)
+		return schema.Array{}, derp.InternalError("table.Widget.getTableElement", "Failed to get table element", widget.Schema, widget.Path)
 	}
 
 	arrayElement, ok := element.(schema.Array)
 
 	if !ok {
-		return schema.Array{}, derp.NewInternalError("table.Widget.getTableElement", "Table element is not an array", widget.Path)
+		return schema.Array{}, derp.InternalError("table.Widget.getTableElement", "Table element is not an array", widget.Path)
 	}
 
 	return arrayElement, nil

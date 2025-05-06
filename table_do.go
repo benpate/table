@@ -53,22 +53,22 @@ func (widget *Table) DoEdit(data map[string]any, editIndex int) error {
 
 	// Cannot be negative index
 	case editIndex < 0:
-		return derp.NewInternalError(location, "Edit index out of range (negative index not allowed)", widget.Path, editIndex)
+		return derp.InternalError(location, "Edit index out of range (negative index not allowed)", widget.Path, editIndex)
 
 	// Cannot be greater than length (but equal to length is okay because it means "add a new row")
 	case editIndex > length:
-		return derp.NewInternalError(location, "Edit index out of range (too large)", data, widget.Path, tableData, length, editIndex)
+		return derp.InternalError(location, "Edit index out of range (too large)", data, widget.Path, tableData, length, editIndex)
 
 	// Verify permission to add
 	case editIndex == length:
 		if !widget.CanAdd {
-			return derp.NewInternalError(location, "Cannot add new row", widget.Path, editIndex)
+			return derp.InternalError(location, "Cannot add new row", widget.Path, editIndex)
 		}
 
 	// Verify permission to edit
 	default:
 		if !widget.CanEdit {
-			return derp.NewInternalError(location, "Cannot edit row", widget.Path, editIndex)
+			return derp.InternalError(location, "Cannot edit row", widget.Path, editIndex)
 		}
 	}
 
@@ -90,13 +90,13 @@ func (widget *Table) DoDelete(deleteIndex int) error {
 	const location = "table.Widget.DoEdit"
 
 	if !widget.CanDelete {
-		return derp.NewBadRequestError(location, "Deleting is not allowed", widget.Path)
+		return derp.BadRequestError(location, "Deleting is not allowed", widget.Path)
 	}
 
 	path := list.ByDot(widget.Path, strconv.Itoa(deleteIndex)).String()
 
 	if ok := widget.Schema.Remove(widget.Object, path); !ok {
-		return derp.NewInternalError(location, "Error removing value from table")
+		return derp.InternalError(location, "Error removing value from table")
 	}
 
 	return nil
