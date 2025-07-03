@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/benpate/derp"
+	"github.com/benpate/form"
 	"github.com/benpate/html"
 	"github.com/benpate/rosetta/convert"
 	"github.com/benpate/rosetta/mapof"
@@ -230,8 +231,10 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 
 	b.CloseAll()
 
-	// nolint:errcheck // don't need to check errors writing to a buffer.
-	buffer.Write(b.Bytes())
+	if _, err := buffer.Write(b.Bytes()); err != nil {
+		return derp.Wrap(err, location, "Error writing table HTML to buffer", widget.Path)
+	}
+
 	return nil
 
 }
@@ -246,6 +249,7 @@ func (widget *Table) drawAddRow(rowSchema *schema.Schema, b *html.Builder) error
 	b.TR().Class("grid-row", "grid-editable")
 
 	width := "width:calc(100% / " + strconv.Itoa(len(widget.Form.Children)) + ")"
+	f := form.New(*rowSchema, *widget.Form)
 
 	for column, field := range widget.Form.Children {
 		b.TD().Class("grid-cell", "grid-editable").Style(width)
@@ -258,7 +262,7 @@ func (widget *Table) drawAddRow(rowSchema *schema.Schema, b *html.Builder) error
 			field.Options["focus"] = true
 		}
 
-		if err := field.Edit(rowSchema, widget.LookupProvider, nil, b.SubTree()); err != nil {
+		if err := field.Edit(&f, widget.LookupProvider, nil, b.SubTree()); err != nil {
 			return derp.Wrap(err, "table.Widget.drawAddRow", "Error rendering field", field)
 		}
 		b.Close() // TD
@@ -288,6 +292,7 @@ func (widget *Table) drawEditRow(rowSchema *schema.Schema, rowValue any, b *html
 	b.TR().Class("grid-row", "grid-editable")
 
 	width := "width:calc(100% / " + strconv.Itoa(len(widget.Form.Children)) + ")"
+	f := form.New(*rowSchema, *widget.Form)
 
 	for index, field := range widget.Form.Children {
 
@@ -301,7 +306,7 @@ func (widget *Table) drawEditRow(rowSchema *schema.Schema, rowValue any, b *html
 			field.Options["focus"] = true
 		}
 
-		if err := field.Edit(rowSchema, widget.LookupProvider, rowValue, b.SubTree()); err != nil {
+		if err := field.Edit(&f, widget.LookupProvider, rowValue, b.SubTree()); err != nil {
 			return derp.Wrap(err, "table.Widget.drawEditRow", "Error rendering field", field)
 		}
 		b.Close() // TD
@@ -326,6 +331,7 @@ func (widget *Table) drawViewRow(rowSchema *schema.Schema, rowIndex int, rowValu
 	b.TR().Class("grid-row", "hover-trigger")
 
 	width := "width:calc(100% / " + strconv.Itoa(len(widget.Form.Children)) + ")"
+	f := form.New(*rowSchema, *widget.Form)
 
 	for colIndex, field := range widget.Form.Children {
 
@@ -335,7 +341,7 @@ func (widget *Table) drawViewRow(rowSchema *schema.Schema, rowIndex int, rowValu
 			cell.Data("hx-get", widget.getURL("edit", rowIndex, colIndex)).Data("hx-trigger", "click")
 		}
 
-		if err := field.View(rowSchema, widget.LookupProvider, rowValue, b.SubTree()); err != nil {
+		if err := field.View(&f, widget.LookupProvider, rowValue, b.SubTree()); err != nil {
 			return derp.Wrap(err, "table.Widget.drawViewRow", "Error rendering field", field)
 		}
 
