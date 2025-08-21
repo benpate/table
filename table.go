@@ -41,9 +41,9 @@ func New(schema *schema.Schema, form *form.Element, object any, path string, ico
 	}
 }
 
-/********************************
+/******************************************
  * Configuration Methods
- ********************************/
+ ******************************************/
 
 // AllowAdd modifies the table to allow adding new rows.
 func (widget *Table) AllowAdd() *Table {
@@ -85,9 +85,9 @@ func (widget *Table) UseLookupProvider(lookupProvider form.LookupProvider) *Tabl
 	return widget
 }
 
-/********************************
+/*******************************************
  * Other Convenience Methods
- ********************************/
+ ******************************************/
 
 // getURL returns a safe URL to use in callbacks.
 func (widget *Table) getURL(action string, row int, col int) string {

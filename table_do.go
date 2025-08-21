@@ -9,9 +9,9 @@ import (
 	"github.com/benpate/rosetta/list"
 )
 
-/********************************
+/******************************************
  * Update/Delete Methods
- ********************************/
+ ******************************************/
 
 func (widget *Table) Do(queryParams *url.URL, data map[string]any) error {
 

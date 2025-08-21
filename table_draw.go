@@ -15,9 +15,9 @@ import (
 	"github.com/benpate/rosetta/schema"
 )
 
-/********************************
+/******************************************
  * View Methods (Write to Buffers)
- ********************************/
+ *******************************************/
 
 func (widget *Table) Draw(params *url.URL, buffer io.Writer) error {
 
@@ -54,9 +54,9 @@ func (widget *Table) DrawEdit(index int, buffer io.Writer) error {
 	return widget.drawTable(null.NewInt(index), false, buffer)
 }
 
-/********************************
+/******************************************
  * String Wrappers for View Methods
- ********************************/
+ ******************************************/
 
 // DrawViewString returns a string representation of the table (VIEW ONLY)
 func (widget *Table) DrawViewString() (string, error) {
@@ -93,9 +93,9 @@ func (widget *Table) DrawEditString(index int) (string, error) {
 	return buffer.String(), nil
 }
 
-/********************************
+/******************************************
  * Draw Methods (these do the actual work of rendering the table)
- ********************************/
+ ******************************************/
 
 // draw writes this table to the provided io.Writer
 func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) error {
