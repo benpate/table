@@ -8,7 +8,7 @@
 
 ## Inline editor grid component for Go and htmx.
 
-This repository implements a table/grid control with inline editing.  Tables are rendered on the server and swapped into the DOM via htmx `hx-get` and `hx-post` methods.
+This repository implements a table or grid control with inline editing.  Tables are rendered on the server and swapped into the DOM via htmx `hx-get` and `hx-post` methods.
 
 Tables work similar to other [form widgets](https://github.com/benpate/form), and require that you defined both a [data schema](https://github.com/benpate/rosetta/tree/main/schema) and a [UI schema](https://github.com/benpate/form) in order to render them.
 
