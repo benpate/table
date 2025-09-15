@@ -8,7 +8,7 @@ require (
 	github.com/benpate/derp v0.32.8
 	github.com/benpate/form v0.25.0
 	github.com/benpate/html v0.16.13
-	github.com/benpate/rosetta v0.25.15
+	github.com/benpate/rosetta v0.25.16
 )
 
 require (
