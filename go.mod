@@ -5,10 +5,10 @@ go 1.24.0
 toolchain go1.24.1
 
 require (
-	github.com/benpate/derp v0.33.0
-	github.com/benpate/form v0.25.1
-	github.com/benpate/html v0.16.13
-	github.com/benpate/rosetta v0.25.18
+	github.com/benpate/derp v0.34.0
+	github.com/benpate/form v0.25.2
+	github.com/benpate/html v0.16.14
+	github.com/benpate/rosetta v0.25.20
 )
 
 require (
@@ -19,6 +19,6 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
 	github.com/rs/zerolog v1.34.0 // indirect
-	golang.org/x/net v0.44.0 // indirect
-	golang.org/x/sys v0.36.0 // indirect
+	golang.org/x/net v0.46.0 // indirect
+	golang.org/x/sys v0.37.0 // indirect
 )
