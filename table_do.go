@@ -47,7 +47,7 @@ func (widget *Table) DoEdit(data map[string]any, editIndex int) error {
 		return derp.Wrap(err, location, "Failed to locate row schema", widget.Path, editIndex)
 	}
 
-	length := convert.SliceLength(tableData)
+	length := convert.SliceLength(tableData) //nolint:scopeguard
 
 	switch {
 

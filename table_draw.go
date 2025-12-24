@@ -177,7 +177,7 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 	// Header row
 	b.TR().Class("grid-header")
 	for _, field := range widget.Form.Children {
-		td := b.TD().Class("grid-cell")
+		td := b.TD().Class("grid-cell") // nolint:scopeguard
 		if width, ok := field.Options["column-width"]; ok {
 			td.Style("width", convert.String(width))
 		}
@@ -335,7 +335,7 @@ func (widget *Table) drawViewRow(rowSchema *schema.Schema, rowIndex int, rowValu
 
 	for colIndex, field := range widget.Form.Children {
 
-		cell := b.TD().Class("grid-cell").Style(width)
+		cell := b.TD().Class("grid-cell").Style(width) // nolint:scopeguard
 
 		if widget.CanEdit {
 			cell.Data("hx-get", widget.getURL("edit", rowIndex, colIndex)).Data("hx-trigger", "click")
