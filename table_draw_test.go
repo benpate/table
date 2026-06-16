@@ -81,6 +81,30 @@ func TestDraw_FocusParam(t *testing.T) {
 	assert.Equal(t, 1, table.focusColumn) // focus query param is parsed into focusColumn
 }
 
+// A focus column beyond the last column is untrusted input and must not panic.
+func TestDraw_FocusTooLarge(t *testing.T) {
+
+	table := newTestTable()
+	var buffer bytes.Buffer
+
+	err := table.Draw(mustURL(t, "http://x?edit=0&focus=999"), &buffer)
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, table.focusColumn) // clamped back to a valid column
+}
+
+// A negative focus column must not panic.
+func TestDraw_FocusNegative(t *testing.T) {
+
+	table := newTestTable()
+	var buffer bytes.Buffer
+
+	err := table.Draw(mustURL(t, "http://x?add=true&focus=-1"), &buffer)
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, table.focusColumn) // clamped back to a valid column
+}
+
 /******************************************
  * DrawViewString()
  ******************************************/

@@ -23,6 +23,11 @@ func (widget *Table) Draw(params *url.URL, buffer io.Writer) error {
 
 	widget.focusColumn, _ = strconv.Atoi(params.Query().Get("focus"))
 
+	// Clamp the focus column to a valid index, since it comes from untrusted query input
+	if (widget.focusColumn < 0) || (widget.focusColumn >= len(widget.Form.Children)) {
+		widget.focusColumn = 0
+	}
+
 	// Try to ADD a row
 	if params.Query().Get("add") == "true" {
 		return widget.DrawAdd(buffer)
@@ -279,9 +284,11 @@ func (widget *Table) drawAddRow(rowSchema *schema.Schema, b *html.Builder) error
 		b.Close() // TD
 	}
 
-	// IDK why we have to do this, but the "focusColumn" is persisting
-	// after the loop completes.
-	delete(widget.Form.Children[widget.focusColumn].Options, "focus")
+	// The "focus" flag is written into the shared Form.Children map, so it must be
+	// cleared after the loop.  The bounds check guards against an out-of-range focusColumn.
+	if (widget.focusColumn >= 0) && (widget.focusColumn < len(widget.Form.Children)) {
+		delete(widget.Form.Children[widget.focusColumn].Options, "focus")
+	}
 
 	b.TD().Class("grid-cell", "grid-editable", "grid-controls")
 	b.Button().Type("submit").Class("text-green").InnerHTML(widget.Icons.Get("save")).Close()
@@ -325,9 +332,11 @@ func (widget *Table) drawEditRow(rowSchema *schema.Schema, rowValue any, b *html
 		b.Close() // TD
 	}
 
-	// IDK why we have to do this, but the "focusColumn" is persisting
-	// after the loop completes.
-	delete(widget.Form.Children[widget.focusColumn].Options, "focus")
+	// The "focus" flag is written into the shared Form.Children map, so it must be
+	// cleared after the loop.  The bounds check guards against an out-of-range focusColumn.
+	if (widget.focusColumn >= 0) && (widget.focusColumn < len(widget.Form.Children)) {
+		delete(widget.Form.Children[widget.focusColumn].Options, "focus")
+	}
 
 	// Write actions column
 	b.TD().Class("grid-cell", "grid-editable", "grid-controls")
