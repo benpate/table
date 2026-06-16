@@ -215,8 +215,7 @@ func TestDrawViewString(t *testing.T) {
 
 func TestDrawViewString_AllowNone(t *testing.T) {
 
-	table := newTestTable()
-	table.AllowNone()
+	table := newTestTable().AllowNone()
 
 	result, err := table.DrawViewString()
 

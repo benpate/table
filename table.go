@@ -47,42 +47,46 @@ func New(schema *schema.Schema, form *form.Element, object any, path string, ico
  * Configuration Methods
  ******************************************/
 
-// AllowAdd modifies the table to allow adding new rows.
-func (widget *Table) AllowAdd() *Table {
+// These builders take a value receiver and return a modified copy, so they can be
+// chained directly off New (e.g. New(...).AllowNone()) without escaping to the heap.
+// Because they do not mutate in place, callers must use the returned value.
+
+// AllowAdd returns a copy of the table that allows adding new rows.
+func (widget Table) AllowAdd() Table {
 	widget.CanAdd = true
 	return widget
 }
 
-// AllowEdit modifies the table to allow editing existing rows.
-func (widget *Table) AllowEdit() *Table {
+// AllowEdit returns a copy of the table that allows editing existing rows.
+func (widget Table) AllowEdit() Table {
 	widget.CanEdit = true
 	return widget
 }
 
-// AllowDelete modifies the table to allow deleting existing rows.
-func (widget *Table) AllowDelete() *Table {
+// AllowDelete returns a copy of the table that allows deleting existing rows.
+func (widget Table) AllowDelete() Table {
 	widget.CanDelete = true
 	return widget
 }
 
-// AllowAll modifies the table to allow all write actions (Add, Edit, Delete).
-func (widget *Table) AllowAll() *Table {
+// AllowAll returns a copy of the table that allows all write actions (Add, Edit, Delete).
+func (widget Table) AllowAll() Table {
 	widget.CanAdd = true
 	widget.CanEdit = true
 	widget.CanDelete = true
 	return widget
 }
 
-// AllowNone modifies the table to disallow all write actions.
-func (widget *Table) AllowNone() *Table {
+// AllowNone returns a copy of the table that disallows all write actions.
+func (widget Table) AllowNone() Table {
 	widget.CanAdd = false
 	widget.CanEdit = false
 	widget.CanDelete = false
 	return widget
 }
 
-// UseLookupProvider modifies the table to use the given lookup provider.
-func (widget *Table) UseLookupProvider(lookupProvider form.LookupProvider) *Table {
+// UseLookupProvider returns a copy of the table that uses the given lookup provider.
+func (widget Table) UseLookupProvider(lookupProvider form.LookupProvider) Table {
 	widget.LookupProvider = lookupProvider
 	return widget
 }

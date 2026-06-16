@@ -168,14 +168,17 @@ func TestNew(t *testing.T) {
  * Configuration Methods
  ******************************************/
 
+// The builders return a modified copy and leave the original untouched, so each
+// test asserts both the returned value and that the receiver is unchanged.
+
 func TestAllowAdd(t *testing.T) {
 	table := newTestTable()
 	table.CanAdd = false
 
 	result := table.AllowAdd()
 
-	assert.Same(t, &table, result) // returns the same widget for chaining
-	assert.True(t, table.CanAdd)
+	assert.True(t, result.CanAdd) // the returned copy allows adding
+	assert.False(t, table.CanAdd) // the original is left unchanged
 }
 
 func TestAllowEdit(t *testing.T) {
@@ -184,8 +187,8 @@ func TestAllowEdit(t *testing.T) {
 
 	result := table.AllowEdit()
 
-	assert.Same(t, &table, result)
-	assert.True(t, table.CanEdit)
+	assert.True(t, result.CanEdit)
+	assert.False(t, table.CanEdit)
 }
 
 func TestAllowDelete(t *testing.T) {
@@ -194,8 +197,8 @@ func TestAllowDelete(t *testing.T) {
 
 	result := table.AllowDelete()
 
-	assert.Same(t, &table, result)
-	assert.True(t, table.CanDelete)
+	assert.True(t, result.CanDelete)
+	assert.False(t, table.CanDelete)
 }
 
 func TestAllowAll(t *testing.T) {
@@ -206,21 +209,29 @@ func TestAllowAll(t *testing.T) {
 
 	result := table.AllowAll()
 
-	assert.Same(t, &table, result)
-	assert.True(t, table.CanAdd)
-	assert.True(t, table.CanEdit)
-	assert.True(t, table.CanDelete)
-}
+	assert.True(t, result.CanAdd)
+	assert.True(t, result.CanEdit)
+	assert.True(t, result.CanDelete)
 
-func TestAllowNone(t *testing.T) {
-	table := newTestTable()
-
-	result := table.AllowNone()
-
-	assert.Same(t, &table, result)
+	// The original is left unchanged
 	assert.False(t, table.CanAdd)
 	assert.False(t, table.CanEdit)
 	assert.False(t, table.CanDelete)
+}
+
+func TestAllowNone(t *testing.T) {
+	table := newTestTable() // New() grants all permissions
+
+	result := table.AllowNone()
+
+	assert.False(t, result.CanAdd)
+	assert.False(t, result.CanEdit)
+	assert.False(t, result.CanDelete)
+
+	// The original is left unchanged
+	assert.True(t, table.CanAdd)
+	assert.True(t, table.CanEdit)
+	assert.True(t, table.CanDelete)
 }
 
 func TestUseLookupProvider(t *testing.T) {
@@ -229,8 +240,24 @@ func TestUseLookupProvider(t *testing.T) {
 
 	result := table.UseLookupProvider(provider)
 
-	assert.Same(t, &table, result)
-	assert.Equal(t, provider, table.LookupProvider)
+	assert.Equal(t, provider, result.LookupProvider)
+	assert.Nil(t, table.LookupProvider) // the original is left unchanged
+}
+
+// The builders use value receivers so they can be chained directly off New
+// without the result escaping to the heap.
+func TestNew_BuildersChainOffConstructor(t *testing.T) {
+	s := testSchema()
+	f := testForm()
+
+	table := New(&s, &f, testData(), "data", testIconProvider{}, "http://localhost/table").
+		AllowNone().
+		UseLookupProvider(testLookupProvider{})
+
+	assert.False(t, table.CanAdd)
+	assert.False(t, table.CanEdit)
+	assert.False(t, table.CanDelete)
+	assert.NotNil(t, table.LookupProvider)
 }
 
 /******************************************
