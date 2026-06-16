@@ -260,6 +260,26 @@ func TestGetURL(t *testing.T) {
 	check("unknown", 1, 1, "http://localhost/table")
 }
 
+// When the TargetURL already carries a query string, getURL must merge its
+// parameters in rather than appending a second "?".
+func TestGetURL_TargetWithExistingQuery(t *testing.T) {
+
+	table := newTestTable()
+	table.TargetURL = "http://localhost/table?section=tasks"
+
+	check := func(action string, row int, col int, expected string) {
+		assert.Equal(t, expected, table.getURL(action, row, col), "action=%s row=%d col=%d", action, row, col)
+	}
+
+	// url.Values.Encode sorts keys alphabetically, so the existing "section" param is preserved
+	check("add", 0, 0, "http://localhost/table?add=true&section=tasks")
+	check("edit", 3, 2, "http://localhost/table?edit=3&focus=2&section=tasks")
+	check("delete", 7, 0, "http://localhost/table?delete=7&section=tasks")
+
+	// Unrecognized actions still return the bare TargetURL, untouched
+	check("unknown", 0, 0, "http://localhost/table?section=tasks")
+}
+
 /******************************************
  * getTableElement()
  ******************************************/

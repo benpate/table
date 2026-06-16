@@ -3,6 +3,8 @@
 package table
 
 import (
+	"net/url"
+
 	"github.com/benpate/derp"
 	"github.com/benpate/form"
 	"github.com/benpate/rosetta/convert"
@@ -89,19 +91,33 @@ func (widget *Table) UseLookupProvider(lookupProvider form.LookupProvider) *Tabl
  * Other Convenience Methods
  ******************************************/
 
-// getURL returns a safe URL to use in callbacks.
+// getURL returns a safe URL to use in callbacks, merging the action's query
+// parameters into any query string the TargetURL already has.
 func (widget *Table) getURL(action string, row int, col int) string {
+
+	parsed, err := url.Parse(widget.TargetURL)
+
+	// If the TargetURL can't be parsed, fall back to returning it unchanged
+	if err != nil {
+		return widget.TargetURL
+	}
+
+	query := parsed.Query()
 
 	switch action {
 	case "add":
-		return widget.TargetURL + "?add=true"
+		query.Set("add", "true")
 	case "edit":
-		return widget.TargetURL + "?edit=" + convert.String(row) + "&focus=" + convert.String(col)
+		query.Set("edit", convert.String(row))
+		query.Set("focus", convert.String(col))
 	case "delete":
-		return widget.TargetURL + "?delete=" + convert.String(row)
+		query.Set("delete", convert.String(row))
 	default:
 		return widget.TargetURL
 	}
+
+	parsed.RawQuery = query.Encode()
+	return parsed.String()
 }
 
 func (widget *Table) getTableElement() (schema.Array, error) {
