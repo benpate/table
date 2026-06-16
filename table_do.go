@@ -13,6 +13,8 @@ import (
  * Update/Delete Methods
  ******************************************/
 
+// Do applies an edit or delete action to the table's data, selecting the action
+// from the "edit" and "delete" query parameters.
 func (widget *Table) Do(queryParams *url.URL, data map[string]any) error {
 
 	const location = "table.Widget.Do"
@@ -30,9 +32,9 @@ func (widget *Table) Do(queryParams *url.URL, data map[string]any) error {
 	}
 
 	// If this is a delete request, then remove the requested row
-	if delete := queryParams.Query().Get("delete"); delete != "" {
+	if deleteParam := queryParams.Query().Get("delete"); deleteParam != "" {
 
-		if deleteIndex, err := strconv.Atoi(delete); err == nil {
+		if deleteIndex, err := strconv.Atoi(deleteParam); err == nil {
 			if err := widget.DoDelete(deleteIndex); err != nil {
 				return derp.Wrap(err, location, "Deleting row", widget.Path, deleteIndex)
 			}

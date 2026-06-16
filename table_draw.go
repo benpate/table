@@ -19,6 +19,8 @@ import (
  * View Methods (Write to Buffers)
  *******************************************/
 
+// Draw renders the table to the buffer, choosing view, add, or edit mode based
+// on the "add", "edit", and "focus" query parameters.
 func (widget *Table) Draw(params *url.URL, buffer io.Writer) error {
 
 	query := params.Query()

@@ -1,3 +1,5 @@
+// Package table renders an editable HTML table (grid) widget whose columns are
+// defined by a form.Element and whose data is described by a rosetta schema.
 package table
 
 import (
