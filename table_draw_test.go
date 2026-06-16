@@ -276,6 +276,19 @@ func TestDrawViewString_Error(t *testing.T) {
 	assert.Empty(t, result)
 }
 
+// A misconfigured Object (not a schema.PointerGetter) makes Schema.Get fail.
+// That error must be reported, not silently rendered as an empty table.
+func TestDrawViewString_BadObject(t *testing.T) {
+
+	table := newTestTable()
+	table.Object = "not a pointer-getter" // Schema.Get will fail to read the data
+
+	result, err := table.DrawViewString()
+
+	require.Error(t, err)
+	assert.Empty(t, result)
+}
+
 /******************************************
  * DrawAddString()
  ******************************************/

@@ -25,7 +25,8 @@ func (widget Table) Draw(params *url.URL, buffer io.Writer) error {
 
 	query := params.Query()
 
-	// Parse and clamp the focus column to a valid index, since it comes from untrusted query input
+	// Parse and clamp the focus column to a valid index, since it comes from untrusted query input.
+	// A non-numeric value parses to 0, which the clamp below treats as the first column.
 	focusColumn, _ := strconv.Atoi(query.Get("focus"))
 	if (focusColumn < 0) || (focusColumn >= len(widget.Form.Children)) {
 		focusColumn = 0
@@ -130,7 +131,12 @@ func (widget Table) drawTable(editRow null.Int, addRow bool, focusColumn int, bu
 	tableSchema := schema.New(tableElement)
 	rowSchema := schema.New(rowElement)
 
-	tableValue, _ := widget.Schema.Get(widget.Object, widget.Path)
+	tableValue, err := widget.Schema.Get(widget.Object, widget.Path)
+
+	if err != nil {
+		return derp.Wrap(err, location, "Getting table data", widget.Path)
+	}
+
 	tableLength := convert.SliceLength(tableValue)
 
 	// Compute the effective permissions for THIS render as locals, so the table data's

@@ -9,6 +9,5 @@ func (t testIconProvider) Get(name string) string {
 }
 
 func (t testIconProvider) Write(name string, writer io.Writer) {
-	// nolint:errcheck // ignore errors in test code
-	writer.Write([]byte(name))
+	_, _ = writer.Write([]byte(name)) // errors are irrelevant in this test helper
 }
