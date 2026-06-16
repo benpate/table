@@ -424,7 +424,7 @@ func TestDrawEditString_FieldError(t *testing.T) {
 // buffer.Write error branch in drawTable.
 type errorWriter struct{}
 
-func (errorWriter) Write(p []byte) (int, error) {
+func (errorWriter) Write(_ []byte) (int, error) {
 	return 0, assert.AnError
 }
 

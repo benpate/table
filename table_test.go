@@ -92,7 +92,7 @@ func newTestTable() Table {
 // testLookupProvider is a no-op implementation of form.LookupProvider.
 type testLookupProvider struct{}
 
-func (testLookupProvider) Group(name string) form.LookupGroup { return nil }
+func (testLookupProvider) Group(_ string) form.LookupGroup { return nil }
 
 /******************************************
  * Original Example (kept for documentation)
@@ -131,7 +131,7 @@ func ExampleTable() {
 	fmt.Println(table.DrawViewString())
 }
 
-func TestTable(t *testing.T) {
+func TestTable(_ *testing.T) {
 	ExampleTable()
 }
 

@@ -21,7 +21,7 @@ import (
 
 // Draw renders the table to the buffer, choosing view, add, or edit mode based
 // on the "add", "edit", and "focus" query parameters.
-func (widget *Table) Draw(params *url.URL, buffer io.Writer) error {
+func (widget Table) Draw(params *url.URL, buffer io.Writer) error {
 
 	query := params.Query()
 
@@ -48,17 +48,17 @@ func (widget *Table) Draw(params *url.URL, buffer io.Writer) error {
 }
 
 // DrawView returns a VIEW ONLY representation of the table
-func (widget *Table) DrawView(buffer io.Writer) error {
+func (widget Table) DrawView(buffer io.Writer) error {
 	return widget.drawTable(null.Int{}, false, 0, buffer)
 }
 
 // DrawAdd returns the table with a row for adding a new record
-func (widget *Table) DrawAdd(buffer io.Writer) error {
+func (widget Table) DrawAdd(buffer io.Writer) error {
 	return widget.drawTable(null.Int{}, true, 0, buffer)
 }
 
 // DrawEdit returns the table with a single editable row
-func (widget *Table) DrawEdit(index int, buffer io.Writer) error {
+func (widget Table) DrawEdit(index int, buffer io.Writer) error {
 	return widget.drawTable(null.NewInt(index), false, 0, buffer)
 }
 
@@ -67,7 +67,7 @@ func (widget *Table) DrawEdit(index int, buffer io.Writer) error {
  ******************************************/
 
 // DrawViewString returns a string representation of the table (VIEW ONLY)
-func (widget *Table) DrawViewString() (string, error) {
+func (widget Table) DrawViewString() (string, error) {
 
 	const location = "table.Widget.DrawViewString"
 
@@ -82,7 +82,7 @@ func (widget *Table) DrawViewString() (string, error) {
 }
 
 // DrawAddString returns a string representation of the table with a row for adding a new record
-func (widget *Table) DrawAddString() (string, error) {
+func (widget Table) DrawAddString() (string, error) {
 
 	const location = "table.Widget.DrawAddString"
 
@@ -97,7 +97,7 @@ func (widget *Table) DrawAddString() (string, error) {
 }
 
 // DrawEditString returns a string representation of the table with a single editable row
-func (widget *Table) DrawEditString(index int) (string, error) {
+func (widget Table) DrawEditString(index int) (string, error) {
 
 	const location = "table.Widget.DrawEditString"
 
@@ -114,8 +114,8 @@ func (widget *Table) DrawEditString(index int) (string, error) {
  * Draw Methods (these do the actual work of rendering the table)
  ******************************************/
 
-// draw writes this table to the provided io.Writer
-func (widget *Table) drawTable(editRow null.Int, addRow bool, focusColumn int, buffer io.Writer) error {
+// drawTable writes this table to the provided io.Writer
+func (widget Table) drawTable(editRow null.Int, addRow bool, focusColumn int, buffer io.Writer) error {
 
 	const location = "table.Widget.drawTable"
 
@@ -276,7 +276,7 @@ func focusField(field form.Element) form.Element {
 	return field
 }
 
-func (widget *Table) drawAddRow(rowSchema *schema.Schema, canAdd bool, b *html.Builder) error {
+func (widget Table) drawAddRow(rowSchema *schema.Schema, canAdd bool, b *html.Builder) error {
 
 	const location = "table.Widget.drawAddRow"
 
@@ -314,7 +314,7 @@ func (widget *Table) drawAddRow(rowSchema *schema.Schema, canAdd bool, b *html.B
 	return nil
 }
 
-func (widget *Table) drawEditRow(rowSchema *schema.Schema, rowValue any, canEdit bool, focusColumn int, b *html.Builder) error {
+func (widget Table) drawEditRow(rowSchema *schema.Schema, rowValue any, canEdit bool, focusColumn int, b *html.Builder) error {
 
 	const location = "table.Widget.drawEditRow"
 
@@ -354,7 +354,7 @@ func (widget *Table) drawEditRow(rowSchema *schema.Schema, rowValue any, canEdit
 	return nil
 }
 
-func (widget *Table) drawViewRow(rowSchema *schema.Schema, rowIndex int, rowValue any, canEdit bool, canDelete bool, b *html.Builder) error {
+func (widget Table) drawViewRow(rowSchema *schema.Schema, rowIndex int, rowValue any, canEdit bool, canDelete bool, b *html.Builder) error {
 
 	const location = "table.Widget.drawViewRow"
 

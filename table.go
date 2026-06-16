@@ -28,7 +28,7 @@ type Table struct {
 	CanDelete      bool                // If TRUE, then users can delete existing rows in the table
 }
 
-// New returns a fully initialiized Table widget (with all required fields)
+// New returns a fully initialized Table widget (with all required fields)
 func New(schema *schema.Schema, form *form.Element, object any, path string, iconProvider IconProvider, targetURL string) Table {
 	return Table{
 		Schema:    schema,
@@ -97,7 +97,7 @@ func (widget Table) UseLookupProvider(lookupProvider form.LookupProvider) Table 
 
 // getURL returns a safe URL to use in callbacks, merging the action's query
 // parameters into any query string the TargetURL already has.
-func (widget *Table) getURL(action string, row int, col int) string {
+func (widget Table) getURL(action string, row int, col int) string {
 
 	parsed, err := url.Parse(widget.TargetURL)
 
@@ -124,7 +124,7 @@ func (widget *Table) getURL(action string, row int, col int) string {
 	return parsed.String()
 }
 
-func (widget *Table) getTableElement() (schema.Array, error) {
+func (widget Table) getTableElement() (schema.Array, error) {
 
 	const location = "table.Widget.getTableElement"
 

@@ -23,11 +23,11 @@ func FuzzDo(f *testing.F) {
 	f.Add("-1", "-1")
 	f.Add("", "xyz")
 
-	f.Fuzz(func(t *testing.T, edit string, delete string) {
+	f.Fuzz(func(_ *testing.T, edit string, deleteVal string) {
 
 		table := newTestTable()
 
-		params := &url.URL{RawQuery: url.Values{"edit": {edit}, "delete": {delete}}.Encode()}
+		params := &url.URL{RawQuery: url.Values{"edit": {edit}, "delete": {deleteVal}}.Encode()}
 
 		// We don't care whether Do succeeds or fails, only that it does not panic.
 		_ = table.Do(params, map[string]any{"name": "fuzz", "age": 1})
