@@ -22,8 +22,6 @@ type Table struct {
 	CanAdd         bool                // If TRUE, then users can add new rows to the table
 	CanEdit        bool                // If TRUE, then users can edit existing rows in the table
 	CanDelete      bool                // If TRUE, then users can delete existing rows in the table
-
-	focusColumn int // Column to focus on when rendering the table
 }
 
 // New returns a fully initialiized Table widget (with all required fields)

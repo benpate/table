@@ -2,6 +2,9 @@ package table
 
 import (
 	"bytes"
+	"net/url"
+	"strconv"
+	"strings"
 	"sync"
 	"testing"
 
@@ -71,18 +74,31 @@ func TestDraw_EditNotNumeric(t *testing.T) {
 	assert.NotContains(t, result, "<form")
 }
 
+// autofocusedInput returns the rendered <input ...> tag that carries the
+// "autofocus" attribute, or "" if no input is autofocused.
+func autofocusedInput(html string) string {
+	for _, chunk := range strings.Split(html, "<input") {
+		if strings.Contains(chunk, "autofocus") {
+			return chunk
+		}
+	}
+	return ""
+}
+
 func TestDraw_FocusParam(t *testing.T) {
 
 	table := newTestTable()
 	var buffer bytes.Buffer
 
-	err := table.Draw(mustURL(t, "http://x?focus=1"), &buffer)
+	err := table.Draw(mustURL(t, "http://x?edit=0&focus=1"), &buffer)
 
 	require.NoError(t, err)
-	assert.Equal(t, 1, table.focusColumn) // focus query param is parsed into focusColumn
+	// The focus query param autofocuses the requested column (column 1 == "age")
+	assert.Contains(t, autofocusedInput(buffer.String()), `name="age"`)
 }
 
-// A focus column beyond the last column is untrusted input and must not panic.
+// A focus column beyond the last column is untrusted input: it must not panic,
+// and clamps back to the first column.
 func TestDraw_FocusTooLarge(t *testing.T) {
 
 	table := newTestTable()
@@ -91,7 +107,7 @@ func TestDraw_FocusTooLarge(t *testing.T) {
 	err := table.Draw(mustURL(t, "http://x?edit=0&focus=999"), &buffer)
 
 	require.NoError(t, err)
-	assert.Equal(t, 0, table.focusColumn) // clamped back to a valid column
+	assert.Contains(t, autofocusedInput(buffer.String()), `name="name"`) // clamped to column 0
 }
 
 // A negative focus column must not panic.
@@ -103,7 +119,8 @@ func TestDraw_FocusNegative(t *testing.T) {
 	err := table.Draw(mustURL(t, "http://x?add=true&focus=-1"), &buffer)
 
 	require.NoError(t, err)
-	assert.Equal(t, 0, table.focusColumn) // clamped back to a valid column
+	// Adding always focuses the first column, and the bad focus value is harmless
+	assert.Contains(t, autofocusedInput(buffer.String()), `name="name"`)
 }
 
 // sharedForm returns a schema + form whose columns carry non-nil Options maps,
@@ -119,13 +136,11 @@ func sharedForm() (schema.Schema, form.Element) {
 }
 
 // Rendering must never write the transient "focus" flag back into the shared
-// Form definition.  (The old code focused column 0 on add but cleaned up
-// focusColumn, leaking "focus" onto the shared form when they differed.)
+// Form definition.  Adding focuses the first column; it must do so on a copy.
 func TestDrawAdd_DoesNotMutateSharedForm(t *testing.T) {
 
 	s, f := sharedForm()
 	table := New(&s, &f, testData(), "data", testIconProvider{}, "http://x")
-	table.focusColumn = 1 // add focuses column 0; the old cleanup targeted focusColumn
 
 	_, err := table.DrawAddString()
 
@@ -134,12 +149,15 @@ func TestDrawAdd_DoesNotMutateSharedForm(t *testing.T) {
 	assert.False(t, ok, "add render must not leave 'focus' on the shared form")
 }
 
+// Editing with a non-default focus column must focus that column on a copy,
+// never writing "focus" back into any column of the shared Form.
 func TestDrawEdit_DoesNotMutateSharedForm(t *testing.T) {
 
 	s, f := sharedForm()
 	table := New(&s, &f, testData(), "data", testIconProvider{}, "http://x")
 
-	_, err := table.DrawEditString(0)
+	var buffer bytes.Buffer
+	err := table.Draw(mustURL(t, "http://x?edit=0&focus=1"), &buffer)
 
 	require.NoError(t, err)
 	for index, child := range f.Children {
@@ -149,21 +167,22 @@ func TestDrawEdit_DoesNotMutateSharedForm(t *testing.T) {
 }
 
 // Rendering the same shared *form.Element from many goroutines must be race-free.
-// Each goroutine owns its own Table (so the receiver's CanAdd/CanDelete writes
-// don't collide) but they all share one schema and form. Run with -race.
+// Each goroutine owns its own Table but they all share one schema and form, and
+// each focuses a different column via the public Draw API. Run with -race.
 func TestDraw_SharedFormIsRaceFree(t *testing.T) {
 
 	s, f := sharedForm()
 
 	var wg sync.WaitGroup
 	for i := 0; i < 25; i++ {
+		params := mustURL(t, "http://x?edit=0&focus="+strconv.Itoa(i%len(f.Children)))
 		wg.Add(1)
-		go func(focus int) {
+		go func(p *url.URL) {
 			defer wg.Done()
+			var buffer bytes.Buffer
 			table := New(&s, &f, testData(), "data", testIconProvider{}, "http://x")
-			table.focusColumn = focus % len(f.Children)
-			_, _ = table.DrawEditString(0)
-		}(i)
+			_ = table.Draw(p, &buffer)
+		}(params)
 	}
 	wg.Wait()
 }
@@ -229,8 +248,8 @@ func TestDrawViewString_MaxLengthDisablesAdd(t *testing.T) {
 	result, err := table.DrawViewString()
 
 	require.NoError(t, err)
-	assert.False(t, table.CanAdd) // drawTable flips CanAdd off
-	assert.NotContains(t, result, "Add a Row")
+	assert.NotContains(t, result, "Add a Row")                                                // the add control is omitted for this render...
+	assert.True(t, table.CanAdd, "render must not mutate the widget's configured permission") // ...without mutating the widget
 }
 
 func TestDrawViewString_MinLengthDisablesDelete(t *testing.T) {
@@ -243,8 +262,8 @@ func TestDrawViewString_MinLengthDisablesDelete(t *testing.T) {
 	result, err := table.DrawViewString()
 
 	require.NoError(t, err)
-	assert.False(t, table.CanDelete) // drawTable flips CanDelete off
-	assert.NotContains(t, result, "hx-confirm")
+	assert.NotContains(t, result, "hx-confirm")                                                  // the delete control is omitted for this render...
+	assert.True(t, table.CanDelete, "render must not mutate the widget's configured permission") // ...without mutating the widget
 }
 
 func TestDrawViewString_Error(t *testing.T) {

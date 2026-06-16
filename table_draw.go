@@ -21,42 +21,43 @@ import (
 
 func (widget *Table) Draw(params *url.URL, buffer io.Writer) error {
 
-	widget.focusColumn, _ = strconv.Atoi(params.Query().Get("focus"))
+	query := params.Query()
 
-	// Clamp the focus column to a valid index, since it comes from untrusted query input
-	if (widget.focusColumn < 0) || (widget.focusColumn >= len(widget.Form.Children)) {
-		widget.focusColumn = 0
+	// Parse and clamp the focus column to a valid index, since it comes from untrusted query input
+	focusColumn, _ := strconv.Atoi(query.Get("focus"))
+	if (focusColumn < 0) || (focusColumn >= len(widget.Form.Children)) {
+		focusColumn = 0
 	}
 
 	// Try to ADD a row
-	if params.Query().Get("add") == "true" {
-		return widget.DrawAdd(buffer)
+	if query.Get("add") == "true" {
+		return widget.drawTable(null.Int{}, true, focusColumn, buffer)
 	}
 
 	// Try to EDIT a row
-	if edit := params.Query().Get("edit"); edit != "" {
+	if edit := query.Get("edit"); edit != "" {
 		if editIndex, err := strconv.Atoi(edit); err == nil {
-			return widget.DrawEdit(editIndex, buffer)
+			return widget.drawTable(null.NewInt(editIndex), false, focusColumn, buffer)
 		}
 	}
 
-	// Otherwise, just draw the table
-	return widget.DrawView(buffer)
+	// Otherwise, just draw the table (view only)
+	return widget.drawTable(null.Int{}, false, focusColumn, buffer)
 }
 
 // DrawView returns a VIEW ONLY representation of the table
 func (widget *Table) DrawView(buffer io.Writer) error {
-	return widget.drawTable(null.Int{}, false, buffer)
+	return widget.drawTable(null.Int{}, false, 0, buffer)
 }
 
 // DrawAdd returns the table with a row for adding a new record
 func (widget *Table) DrawAdd(buffer io.Writer) error {
-	return widget.drawTable(null.Int{}, true, buffer)
+	return widget.drawTable(null.Int{}, true, 0, buffer)
 }
 
 // DrawEdit returns the table with a single editable row
 func (widget *Table) DrawEdit(index int, buffer io.Writer) error {
-	return widget.drawTable(null.NewInt(index), false, buffer)
+	return widget.drawTable(null.NewInt(index), false, 0, buffer)
 }
 
 /******************************************
@@ -112,7 +113,7 @@ func (widget *Table) DrawEditString(index int) (string, error) {
  ******************************************/
 
 // draw writes this table to the provided io.Writer
-func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) error {
+func (widget *Table) drawTable(editRow null.Int, addRow bool, focusColumn int, buffer io.Writer) error {
 
 	const location = "table.Widget.drawTable"
 
@@ -130,26 +131,32 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 	tableValue, _ := widget.Schema.Get(widget.Object, widget.Path)
 	tableLength := convert.SliceLength(tableValue)
 
+	// Compute the effective permissions for THIS render as locals, so the table data's
+	// min/max bounds never mutate the caller's widget.
+	canAdd := widget.CanAdd
+	canEdit := widget.CanEdit
+	canDelete := widget.CanDelete
+
 	// Only allow ADDs if the table is smaller than the maximum value
 	if (tableElement.MaxLength > 0) && (tableLength >= tableElement.MaxLength) {
-		widget.CanAdd = false
+		canAdd = false
 	}
 
 	// Only allow DELETEs if the table is larger than the minimum value
 	if tableLength <= tableElement.MinLength {
-		widget.CanDelete = false
+		canDelete = false
 	}
 
 	//
 	// Verify Permissions Here
 	//
 
-	if widget.CanAdd && addRow {
+	if canAdd && addRow {
 
 		// If adding is allowed and requested, then set the editable row to a new row at the end of the table
 		editRow.Set(tableLength)
 
-	} else if widget.CanEdit && editRow.IsPresent() {
+	} else if canEdit && editRow.IsPresent() {
 
 		// If editing is allowed and requested, then bounds check the editRow
 		// If the editRow is out of bounds, then use view-only mode
@@ -210,24 +217,24 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 			return derp.Wrap(err, location, "Getting row data", tableSchema, tableValue, rowIndex, tableLength)
 		}
 
-		if widget.CanEdit && editRow.IsPresent() && (editRow.Int() == rowIndex) {
+		if canEdit && editRow.IsPresent() && (editRow.Int() == rowIndex) {
 
-			if err := widget.drawEditRow(&rowSchema, rowValue, b.SubTree()); err != nil {
+			if err := widget.drawEditRow(&rowSchema, rowValue, canEdit, focusColumn, b.SubTree()); err != nil {
 				return derp.Wrap(err, location, "Drawing row (edit)", widget.Path, rowIndex)
 			}
 
 		} else {
 
-			if err := widget.drawViewRow(&rowSchema, rowIndex, rowValue, b.SubTree()); err != nil {
+			if err := widget.drawViewRow(&rowSchema, rowIndex, rowValue, canEdit, canDelete, b.SubTree()); err != nil {
 				return derp.Wrap(err, location, "Drawing row (view)", widget.Path, rowIndex)
 			}
 		}
 	}
 
 	// If we're not editing an existing row, then let users add a new row
-	if widget.CanAdd {
+	if canAdd {
 		if addRow {
-			if err := widget.drawAddRow(&rowSchema, b.SubTree()); err != nil {
+			if err := widget.drawAddRow(&rowSchema, canAdd, b.SubTree()); err != nil {
 				return derp.Wrap(err, location, "Drawing row (add)", widget.Path, tableLength)
 			}
 		} else {
@@ -267,12 +274,12 @@ func focusField(field form.Element) form.Element {
 	return field
 }
 
-func (widget *Table) drawAddRow(rowSchema *schema.Schema, b *html.Builder) error {
+func (widget *Table) drawAddRow(rowSchema *schema.Schema, canAdd bool, b *html.Builder) error {
 
 	const location = "table.Widget.drawAddRow"
 
 	// Paranoid double-check
-	if !widget.CanAdd {
+	if !canAdd {
 		return nil
 	}
 
@@ -305,12 +312,12 @@ func (widget *Table) drawAddRow(rowSchema *schema.Schema, b *html.Builder) error
 	return nil
 }
 
-func (widget *Table) drawEditRow(rowSchema *schema.Schema, rowValue any, b *html.Builder) error {
+func (widget *Table) drawEditRow(rowSchema *schema.Schema, rowValue any, canEdit bool, focusColumn int, b *html.Builder) error {
 
 	const location = "table.Widget.drawEditRow"
 
 	// Paranoid double-check
-	if !widget.CanEdit {
+	if !canEdit {
 		return derp.Internal(location, "Editing is not allowed.  THIS SHOULD NEVER HAPPEN")
 	}
 
@@ -325,7 +332,7 @@ func (widget *Table) drawEditRow(rowSchema *schema.Schema, rowValue any, b *html
 
 		// Focus the requested column when editing.  An out-of-range focusColumn
 		// simply matches no column, so no field is focused (and nothing panics).
-		if index == widget.focusColumn {
+		if index == focusColumn {
 			field = focusField(field)
 		}
 
@@ -345,7 +352,7 @@ func (widget *Table) drawEditRow(rowSchema *schema.Schema, rowValue any, b *html
 	return nil
 }
 
-func (widget *Table) drawViewRow(rowSchema *schema.Schema, rowIndex int, rowValue any, b *html.Builder) error {
+func (widget *Table) drawViewRow(rowSchema *schema.Schema, rowIndex int, rowValue any, canEdit bool, canDelete bool, b *html.Builder) error {
 
 	const location = "table.Widget.drawViewRow"
 
@@ -358,7 +365,7 @@ func (widget *Table) drawViewRow(rowSchema *schema.Schema, rowIndex int, rowValu
 
 		cell := b.TD().Class("grid-cell").Style(width) // nolint:scopeguard
 
-		if widget.CanEdit {
+		if canEdit {
 			cell.Data("hx-get", widget.getURL("edit", rowIndex, colIndex)).Data("hx-trigger", "click")
 		}
 
@@ -371,7 +378,7 @@ func (widget *Table) drawViewRow(rowSchema *schema.Schema, rowIndex int, rowValu
 
 	b.TD().Class("grid-cell", "grid-controls")
 
-	if widget.CanEdit {
+	if canEdit {
 		b.Button().
 			Type("button").
 			Data("hx-get", widget.getURL("edit", rowIndex, 0)).
@@ -379,7 +386,7 @@ func (widget *Table) drawViewRow(rowSchema *schema.Schema, rowIndex int, rowValu
 			Close()
 	}
 
-	if widget.CanDelete {
+	if canDelete {
 		b.Space()
 		b.Button().
 			Type("button").
