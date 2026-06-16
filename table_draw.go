@@ -253,6 +253,20 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 
 }
 
+// focusField returns a copy of the form element with its "focus" option enabled.
+// It clones the Options map so the shared Form definition is never mutated during rendering.
+func focusField(field form.Element) form.Element {
+
+	options := make(mapof.Any, len(field.Options)+1)
+	for key, value := range field.Options {
+		options[key] = value
+	}
+	options["focus"] = true
+
+	field.Options = options
+	return field
+}
+
 func (widget *Table) drawAddRow(rowSchema *schema.Schema, b *html.Builder) error {
 
 	const location = "table.Widget.drawAddRow"
@@ -270,24 +284,15 @@ func (widget *Table) drawAddRow(rowSchema *schema.Schema, b *html.Builder) error
 	for column, field := range widget.Form.Children {
 		b.TD().Class("grid-cell", "grid-editable").Style(width)
 
-		if field.Options == nil {
-			field.Options = make(mapof.Any)
-		}
-
+		// Focus the first column when adding a new row
 		if column == 0 {
-			field.Options["focus"] = true
+			field = focusField(field)
 		}
 
 		if err := field.Edit(&f, widget.LookupProvider, nil, b.SubTree()); err != nil {
 			return derp.Wrap(err, location, "Rendering field", field)
 		}
 		b.Close() // TD
-	}
-
-	// The "focus" flag is written into the shared Form.Children map, so it must be
-	// cleared after the loop.  The bounds check guards against an out-of-range focusColumn.
-	if (widget.focusColumn >= 0) && (widget.focusColumn < len(widget.Form.Children)) {
-		delete(widget.Form.Children[widget.focusColumn].Options, "focus")
 	}
 
 	b.TD().Class("grid-cell", "grid-editable", "grid-controls")
@@ -318,24 +323,16 @@ func (widget *Table) drawEditRow(rowSchema *schema.Schema, rowValue any, b *html
 
 		b.TD().Class("grid-cell", "grid-editable").Style(width)
 
-		if field.Options == nil {
-			field.Options = make(mapof.Any)
-		}
-
+		// Focus the requested column when editing.  An out-of-range focusColumn
+		// simply matches no column, so no field is focused (and nothing panics).
 		if index == widget.focusColumn {
-			field.Options["focus"] = true
+			field = focusField(field)
 		}
 
 		if err := field.Edit(&f, widget.LookupProvider, rowValue, b.SubTree()); err != nil {
 			return derp.Wrap(err, location, "Rendering field", field)
 		}
 		b.Close() // TD
-	}
-
-	// The "focus" flag is written into the shared Form.Children map, so it must be
-	// cleared after the loop.  The bounds check guards against an out-of-range focusColumn.
-	if (widget.focusColumn >= 0) && (widget.focusColumn < len(widget.Form.Children)) {
-		delete(widget.Form.Children[widget.focusColumn].Options, "focus")
 	}
 
 	// Write actions column

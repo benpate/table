@@ -2,6 +2,7 @@ package table
 
 import (
 	"bytes"
+	"sync"
 	"testing"
 
 	"github.com/benpate/form"
@@ -103,6 +104,68 @@ func TestDraw_FocusNegative(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, table.focusColumn) // clamped back to a valid column
+}
+
+// sharedForm returns a schema + form whose columns carry non-nil Options maps,
+// so that any accidental write to the shared form is observable.
+func sharedForm() (schema.Schema, form.Element) {
+	return testSchema(), form.Element{
+		Type: "layout-vertical",
+		Children: []form.Element{
+			{Type: "text", Label: "Name", Path: "name", Options: mapof.Any{}},
+			{Type: "text", Label: "Age", Path: "age", Options: mapof.Any{}},
+		},
+	}
+}
+
+// Rendering must never write the transient "focus" flag back into the shared
+// Form definition.  (The old code focused column 0 on add but cleaned up
+// focusColumn, leaking "focus" onto the shared form when they differed.)
+func TestDrawAdd_DoesNotMutateSharedForm(t *testing.T) {
+
+	s, f := sharedForm()
+	table := New(&s, &f, testData(), "data", testIconProvider{}, "http://x")
+	table.focusColumn = 1 // add focuses column 0; the old cleanup targeted focusColumn
+
+	_, err := table.DrawAddString()
+
+	require.NoError(t, err)
+	_, ok := f.Children[0].Options["focus"]
+	assert.False(t, ok, "add render must not leave 'focus' on the shared form")
+}
+
+func TestDrawEdit_DoesNotMutateSharedForm(t *testing.T) {
+
+	s, f := sharedForm()
+	table := New(&s, &f, testData(), "data", testIconProvider{}, "http://x")
+
+	_, err := table.DrawEditString(0)
+
+	require.NoError(t, err)
+	for index, child := range f.Children {
+		_, ok := child.Options["focus"]
+		assert.False(t, ok, "edit render must not leave 'focus' on shared form column %d", index)
+	}
+}
+
+// Rendering the same shared *form.Element from many goroutines must be race-free.
+// Each goroutine owns its own Table (so the receiver's CanAdd/CanDelete writes
+// don't collide) but they all share one schema and form. Run with -race.
+func TestDraw_SharedFormIsRaceFree(t *testing.T) {
+
+	s, f := sharedForm()
+
+	var wg sync.WaitGroup
+	for i := 0; i < 25; i++ {
+		wg.Add(1)
+		go func(focus int) {
+			defer wg.Done()
+			table := New(&s, &f, testData(), "data", testIconProvider{}, "http://x")
+			table.focusColumn = focus % len(f.Children)
+			_, _ = table.DrawEditString(0)
+		}(i)
+	}
+	wg.Wait()
 }
 
 /******************************************
