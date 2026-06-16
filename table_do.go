@@ -15,23 +15,33 @@ import (
 
 func (widget *Table) Do(queryParams *url.URL, data map[string]any) error {
 
+	const location = "table.Widget.Do"
+
+	// If this is an edit request, then apply the data to the requested row
 	if edit := queryParams.Query().Get("edit"); edit != "" {
 
 		if editIndex, err := strconv.Atoi(edit); err == nil {
 			if err := widget.DoEdit(data, editIndex); err != nil {
-				return derp.Wrap(err, "table.Widget.Do", "Failed to edit row", widget.Path, editIndex)
+				return derp.Wrap(err, location, "Editing row", widget.Path, editIndex)
 			}
 		}
-	} else if delete := queryParams.Query().Get("delete"); delete != "" {
+
+		return nil
+	}
+
+	// If this is a delete request, then remove the requested row
+	if delete := queryParams.Query().Get("delete"); delete != "" {
 
 		if deleteIndex, err := strconv.Atoi(delete); err == nil {
 			if err := widget.DoDelete(deleteIndex); err != nil {
-				return derp.Wrap(err, "table.Widget.Do", "Failed to delete row", widget.Path, deleteIndex)
+				return derp.Wrap(err, location, "Deleting row", widget.Path, deleteIndex)
 			}
 		}
+
+		return nil
 	}
 
-	// Success!
+	// Nothing to do here
 	return nil
 }
 
@@ -44,7 +54,7 @@ func (widget *Table) DoEdit(data map[string]any, editIndex int) error {
 	tableData, err := widget.Schema.Get(widget.Object, widget.Path)
 
 	if err != nil {
-		return derp.Wrap(err, location, "Failed to locate row schema", widget.Path, editIndex)
+		return derp.Wrap(err, location, "Locating row schema", widget.Path, editIndex)
 	}
 
 	length := convert.SliceLength(tableData) //nolint:scopeguard
@@ -53,22 +63,22 @@ func (widget *Table) DoEdit(data map[string]any, editIndex int) error {
 
 	// Cannot be negative index
 	case editIndex < 0:
-		return derp.InternalError(location, "Edit index out of range (negative index not allowed)", widget.Path, editIndex)
+		return derp.Internal(location, "Edit index out of range (negative index not allowed)", widget.Path, editIndex)
 
 	// Cannot be greater than length (but equal to length is okay because it means "add a new row")
 	case editIndex > length:
-		return derp.InternalError(location, "Edit index out of range (too large)", data, widget.Path, tableData, length, editIndex)
+		return derp.Internal(location, "Edit index out of range (too large)", data, widget.Path, tableData, length, editIndex)
 
 	// Verify permission to add
 	case editIndex == length:
 		if !widget.CanAdd {
-			return derp.InternalError(location, "Cannot add new row", widget.Path, editIndex)
+			return derp.Internal(location, "Cannot add new row", widget.Path, editIndex)
 		}
 
 	// Verify permission to edit
 	default:
 		if !widget.CanEdit {
-			return derp.InternalError(location, "Cannot edit row", widget.Path, editIndex)
+			return derp.Internal(location, "Cannot edit row", widget.Path, editIndex)
 		}
 	}
 
@@ -76,7 +86,7 @@ func (widget *Table) DoEdit(data map[string]any, editIndex int) error {
 	for _, field := range widget.Form.AllElements() {
 		path := list.ByDot(widget.Path, strconv.Itoa(editIndex), field.Path)
 		if err := widget.Schema.Set(widget.Object, path.String(), data[field.Path]); err != nil {
-			return derp.Wrap(err, location, "Error setting value in table", path.String(), data)
+			return derp.Wrap(err, location, "Setting value in table", path.String(), data)
 		}
 	}
 
@@ -87,16 +97,16 @@ func (widget *Table) DoEdit(data map[string]any, editIndex int) error {
 // DoDelete removes the requested row from the table
 func (widget *Table) DoDelete(deleteIndex int) error {
 
-	const location = "table.Widget.DoEdit"
+	const location = "table.Widget.DoDelete"
 
 	if !widget.CanDelete {
-		return derp.BadRequestError(location, "Deleting is not allowed", widget.Path)
+		return derp.BadRequest(location, "Deleting is not allowed", widget.Path)
 	}
 
 	path := list.ByDot(widget.Path, strconv.Itoa(deleteIndex)).String()
 
 	if ok := widget.Schema.Remove(widget.Object, path); !ok {
-		return derp.InternalError(location, "Error removing value from table")
+		return derp.Internal(location, "Removing value from table")
 	}
 
 	return nil

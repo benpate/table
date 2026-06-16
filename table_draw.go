@@ -60,10 +60,13 @@ func (widget *Table) DrawEdit(index int, buffer io.Writer) error {
 
 // DrawViewString returns a string representation of the table (VIEW ONLY)
 func (widget *Table) DrawViewString() (string, error) {
+
+	const location = "table.Widget.DrawViewString"
+
 	var buffer bytes.Buffer
 
 	if err := widget.DrawView(&buffer); err != nil {
-		return "", derp.Wrap(err, "table.Widget.ViewString", "Error rendering table")
+		return "", derp.Wrap(err, location, "Rendering table")
 	}
 
 	return buffer.String(), nil
@@ -72,10 +75,13 @@ func (widget *Table) DrawViewString() (string, error) {
 
 // DrawAddString returns a string representation of the table with a row for adding a new record
 func (widget *Table) DrawAddString() (string, error) {
+
+	const location = "table.Widget.DrawAddString"
+
 	var buffer bytes.Buffer
 
 	if err := widget.DrawAdd(&buffer); err != nil {
-		return "", derp.Wrap(err, "table.Widget.DrawAddString", "Error rendering table")
+		return "", derp.Wrap(err, location, "Rendering table")
 	}
 
 	return buffer.String(), nil
@@ -84,10 +90,13 @@ func (widget *Table) DrawAddString() (string, error) {
 
 // DrawEditString returns a string representation of the table with a single editable row
 func (widget *Table) DrawEditString(index int) (string, error) {
+
+	const location = "table.Widget.DrawEditString"
+
 	var buffer bytes.Buffer
 
 	if err := widget.DrawEdit(index, &buffer); err != nil {
-		return "", derp.Wrap(err, "table.Widget.DrawEditString", "Error rendering table")
+		return "", derp.Wrap(err, location, "Rendering table")
 	}
 
 	return buffer.String(), nil
@@ -106,7 +115,7 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 	tableElement, err := widget.getTableElement()
 
 	if err != nil {
-		return derp.Wrap(err, location, "Error getting table element")
+		return derp.Wrap(err, location, "Getting table element")
 	}
 
 	rowElement := tableElement.Items
@@ -193,19 +202,19 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 		rowValue, err := tableSchema.Get(tableValue, strconv.Itoa(rowIndex))
 
 		if err != nil {
-			return derp.Wrap(err, location, "Error getting row data", tableSchema, tableValue, rowIndex, tableLength)
+			return derp.Wrap(err, location, "Getting row data", tableSchema, tableValue, rowIndex, tableLength)
 		}
 
 		if widget.CanEdit && editRow.IsPresent() && (editRow.Int() == rowIndex) {
 
 			if err := widget.drawEditRow(&rowSchema, rowValue, b.SubTree()); err != nil {
-				return derp.Wrap(err, location, "Failed to draw row (edit)", widget.Path, rowIndex)
+				return derp.Wrap(err, location, "Drawing row (edit)", widget.Path, rowIndex)
 			}
 
 		} else {
 
 			if err := widget.drawViewRow(&rowSchema, rowIndex, rowValue, b.SubTree()); err != nil {
-				return derp.Wrap(err, location, "Failed to draw row (view)", widget.Path, rowIndex)
+				return derp.Wrap(err, location, "Drawing row (view)", widget.Path, rowIndex)
 			}
 		}
 	}
@@ -214,7 +223,7 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 	if widget.CanAdd {
 		if addRow {
 			if err := widget.drawAddRow(&rowSchema, b.SubTree()); err != nil {
-				return derp.Wrap(err, location, "Failed to draw row (add)", widget.Path, tableLength)
+				return derp.Wrap(err, location, "Drawing row (add)", widget.Path, tableLength)
 			}
 		} else {
 			b.Close() // TABLE
@@ -232,7 +241,7 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 	b.CloseAll()
 
 	if _, err := buffer.Write(b.Bytes()); err != nil {
-		return derp.Wrap(err, location, "Error writing table HTML to buffer", widget.Path)
+		return derp.Wrap(err, location, "Writing table HTML to buffer", widget.Path)
 	}
 
 	return nil
@@ -240,6 +249,8 @@ func (widget *Table) drawTable(editRow null.Int, addRow bool, buffer io.Writer) 
 }
 
 func (widget *Table) drawAddRow(rowSchema *schema.Schema, b *html.Builder) error {
+
+	const location = "table.Widget.drawAddRow"
 
 	// Paranoid double-check
 	if !widget.CanAdd {
@@ -263,7 +274,7 @@ func (widget *Table) drawAddRow(rowSchema *schema.Schema, b *html.Builder) error
 		}
 
 		if err := field.Edit(&f, widget.LookupProvider, nil, b.SubTree()); err != nil {
-			return derp.Wrap(err, "table.Widget.drawAddRow", "Error rendering field", field)
+			return derp.Wrap(err, location, "Rendering field", field)
 		}
 		b.Close() // TD
 	}
@@ -284,9 +295,11 @@ func (widget *Table) drawAddRow(rowSchema *schema.Schema, b *html.Builder) error
 
 func (widget *Table) drawEditRow(rowSchema *schema.Schema, rowValue any, b *html.Builder) error {
 
+	const location = "table.Widget.drawEditRow"
+
 	// Paranoid double-check
 	if !widget.CanEdit {
-		return derp.InternalError("table.Widget.drawEditRow", "Editing is not allowed.  THIS SHOULD NEVER HAPPEN")
+		return derp.Internal(location, "Editing is not allowed.  THIS SHOULD NEVER HAPPEN")
 	}
 
 	b.TR().Class("grid-row", "grid-editable")
@@ -307,7 +320,7 @@ func (widget *Table) drawEditRow(rowSchema *schema.Schema, rowValue any, b *html
 		}
 
 		if err := field.Edit(&f, widget.LookupProvider, rowValue, b.SubTree()); err != nil {
-			return derp.Wrap(err, "table.Widget.drawEditRow", "Error rendering field", field)
+			return derp.Wrap(err, location, "Rendering field", field)
 		}
 		b.Close() // TD
 	}
@@ -328,6 +341,8 @@ func (widget *Table) drawEditRow(rowSchema *schema.Schema, rowValue any, b *html
 
 func (widget *Table) drawViewRow(rowSchema *schema.Schema, rowIndex int, rowValue any, b *html.Builder) error {
 
+	const location = "table.Widget.drawViewRow"
+
 	b.TR().Class("grid-row", "hover-trigger")
 
 	width := "width:calc(100% / " + strconv.Itoa(len(widget.Form.Children)) + ")"
@@ -342,7 +357,7 @@ func (widget *Table) drawViewRow(rowSchema *schema.Schema, rowIndex int, rowValu
 		}
 
 		if err := field.View(&f, widget.LookupProvider, rowValue, b.SubTree()); err != nil {
-			return derp.Wrap(err, "table.Widget.drawViewRow", "Error rendering field", field)
+			return derp.Wrap(err, location, "Rendering field", field)
 		}
 
 		b.Close() // TD
