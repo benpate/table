@@ -197,6 +197,70 @@ func TestDoEdit_EditNotAllowed(t *testing.T) {
 }
 
 /******************************************
+ * DoEdit() - Missing / Nil Data Keys
+ *
+ * DoEdit pulls each Form field's value with data[field.Path].  A key the caller
+ * omits therefore reads back as nil, which is passed straight to Schema.Set.  How
+ * that nil is handled depends entirely on the field's schema type, so these tests
+ * pin the (sometimes surprising) behavior at the boundary.
+ ******************************************/
+
+// A missing key for an UNCONSTRAINED string field is not an error: Set(nil) writes a
+// nil, silently clearing the column.  Callers that want to preserve untouched fields
+// must supply every Form field's current value in `data`.
+func TestDoEdit_MissingStringKeyClearsField(t *testing.T) {
+
+	table := newTestTable() // testSchema(): name/age are unconstrained
+	db := table.Object.(*testDatabase)
+
+	// Omit "name" entirely; supply a valid "age".
+	err := table.DoEdit(map[string]any{"age": 30}, 0)
+
+	require.NoError(t, err)
+	assert.Nil(t, db.Data[0]["name"]) // nil overwrote the previous "John Connor"
+	assert.EqualValues(t, 30, db.Data[0]["age"])
+}
+
+// A missing key for an integer field IS an error: Set(nil) fails to coerce nil into
+// an integer, so DoEdit aborts and the row is left untouched.
+func TestDoEdit_MissingIntegerKeyFails(t *testing.T) {
+
+	table := newTestTable()
+	db := table.Object.(*testDatabase)
+
+	// Supply a valid "name" but omit "age".
+	err := table.DoEdit(map[string]any{"name": "Kyle Reese"}, 0)
+
+	require.Error(t, err)
+	assert.EqualValues(t, 20, db.Data[0]["age"]) // age field never reached a valid write
+}
+
+// A completely nil data map is rejected, because the integer "age" field cannot be
+// set from a nil value.
+func TestDoEdit_NilDataMap(t *testing.T) {
+
+	table := newTestTable()
+
+	err := table.DoEdit(nil, 0)
+
+	require.Error(t, err)
+}
+
+// When the schema marks a field Required, omitting its key is rejected by validation
+// and the original row is left untouched.
+func TestDoEdit_MissingRequiredKeyFails(t *testing.T) {
+
+	table := newConstrainedTable() // "name" is Required
+	db := table.Object.(*testDatabase)
+
+	// Omit the Required "name"; supply a valid "age".
+	err := table.DoEdit(map[string]any{"age": 30}, 0)
+
+	require.Error(t, err)
+	assert.Equal(t, "John Connor", db.Data[0]["name"]) // original row untouched
+}
+
+/******************************************
  * DoEdit() - Schema Validation on Set
  *
  * As of rosetta v0.26+, Schema.Set runs the schema's validation rules before
