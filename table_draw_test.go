@@ -123,6 +123,77 @@ func TestDraw_FocusNegative(t *testing.T) {
 	assert.Contains(t, autofocusedInput(buffer.String()), `name="name"`)
 }
 
+// An "edit" value too large to fit in an int falls through to a normal (view-only)
+// render rather than panicking on the failed parse.
+func TestDraw_EditOverflows(t *testing.T) {
+
+	table := newTestTable()
+	var buffer bytes.Buffer
+
+	err := table.Draw(mustURL(t, "http://x?edit=999999999999999999999"), &buffer)
+
+	require.NoError(t, err)
+	result := buffer.String()
+	assert.Contains(t, result, `<div class="grid"`) // view mode, not an edit <form>
+	assert.NotContains(t, result, "<form")
+}
+
+// An "edit" index past the end of the table is out of bounds: drawTable falls back
+// to view-only mode rather than rendering a (nonexistent) editable row.
+func TestDraw_EditOutOfBounds(t *testing.T) {
+
+	table := newTestTable() // 2 rows
+	var buffer bytes.Buffer
+
+	err := table.Draw(mustURL(t, "http://x?edit=99"), &buffer)
+
+	require.NoError(t, err)
+	assert.NotContains(t, buffer.String(), "<form") // no editable row
+}
+
+// "add" takes precedence over "edit" when both are present.
+func TestDraw_AddBeatsEdit(t *testing.T) {
+
+	table := newTestTable()
+	var buffer bytes.Buffer
+
+	err := table.Draw(mustURL(t, "http://x?add=true&edit=0"), &buffer)
+
+	require.NoError(t, err)
+	// Adding renders an editable <form> with a blank first column (the new row),
+	// not an edit of the existing row 0.
+	result := buffer.String()
+	assert.Contains(t, result, "<form")
+}
+
+// FuzzDraw confirms that Draw() never panics, regardless of the "add", "edit", and
+// "focus" query-param values it has to parse and clamp.  It mirrors FuzzDo for the
+// render side of the widget.
+func FuzzDraw(f *testing.F) {
+
+	f.Add("true", "0", "0")
+	f.Add("", "0", "1")
+	f.Add("", "abc", "")
+	f.Add("", "999999999999999999999", "-1")
+	f.Add("nope", "-1", "999")
+	f.Add("", "", "")
+
+	f.Fuzz(func(_ *testing.T, add string, edit string, focus string) {
+
+		table := newTestTable()
+
+		params := &url.URL{RawQuery: url.Values{
+			"add":   {add},
+			"edit":  {edit},
+			"focus": {focus},
+		}.Encode()}
+
+		// We don't care whether Draw succeeds or fails, only that it does not panic.
+		var buffer bytes.Buffer
+		_ = table.Draw(params, &buffer)
+	})
+}
+
 // sharedForm returns a schema + form whose columns carry non-nil Options maps,
 // so that any accidental write to the shared form is observable.
 func sharedForm() (schema.Schema, form.Element) {
