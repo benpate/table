@@ -17,7 +17,7 @@ func ExampleTable() {
 
 	// Data schema defines the layout of the data.
 	s := schema.New(schema.Array{
-		MaxLength: null.NewInt(10),
+		MaxLength: 10,
 		Items: schema.Object{
 			Properties: schema.ElementMap{
 				"name": schema.String{},
@@ -36,13 +36,14 @@ func ExampleTable() {
 	}
 
 	// Define some data to render
-	data := []maps.Map{
+	data := []map[string]any{
 		{"name": "John Connor", "age": 20},
 		{"name": "Sarah Connor", "age": 45},
 	}
 
-	// Create the new table and render it in HTML
-	table := New(&s, &f, &data, "", bootstrap.Provider{}, "http://localhost/update-form")
+	// Create the new table and render it in HTML.  The last argument is your own
+	// implementation of the IconProvider interface, which supplies the control icons.
+	table := New(&s, &f, &data, "", iconProvider, "http://localhost/update-form")
 	fmt.Println(table.DrawViewString())
 }
 ```
