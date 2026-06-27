@@ -207,8 +207,8 @@ func (widget Table) drawTable(editRow null.Int, addRow bool, focusColumn int, bu
 	b.TR().Class("grid-header")
 	for _, field := range widget.Form.Children {
 		td := b.TD().Class("grid-cell") // nolint:scopeguard
-		if width, ok := field.Options["column-width"]; ok {
-			td.Style("width", convert.String(width))
+		if width := field.Options.GetString("column-width"); width != "" {
+			td.Style("width", width)
 		}
 		b.Div().InnerText(field.Label).Close()
 		b.Close() // TD

@@ -194,6 +194,73 @@ func FuzzDraw(f *testing.F) {
 	})
 }
 
+/******************************************
+ * drawTable() - Header "column-width" Option
+ *
+ * A column's "column-width" option (form.Element.Options) becomes the CSS width of
+ * its header cell, via mapof.Any.GetString.  These tests pin how each value type
+ * renders, including the accepted lossy two-decimal formatting of a float width.
+ ******************************************/
+
+// columnWidthTable builds a Table whose single column carries the given
+// "column-width" option (or no option at all when width is nil), then returns the
+// rendered view-mode HTML.
+func columnWidthTable(t *testing.T, width any) string {
+	t.Helper()
+
+	s := testSchema()
+
+	options := mapof.Any{}
+	if width != nil {
+		options["column-width"] = width
+	}
+
+	f := form.Element{
+		Type: "layout-vertical",
+		Children: []form.Element{
+			{Type: "text", Label: "Name", Path: "name", Options: options},
+		},
+	}
+
+	table := New(&s, &f, testData(), "data", testIconProvider{}, "http://x")
+
+	result, err := table.DrawViewString()
+	require.NoError(t, err)
+	return result
+}
+
+// A string width (e.g. a percentage) is rendered verbatim onto the header cell.
+func TestDrawColumnWidth_String(t *testing.T) {
+	assert.Contains(t, columnWidthTable(t, "50%"), `style="width; 50%"`)
+}
+
+// An integer width is rendered as a plain integer (no decimals).
+func TestDrawColumnWidth_Integer(t *testing.T) {
+	assert.Contains(t, columnWidthTable(t, 200), `style="width; 200"`)
+}
+
+// A float width is rendered with two decimal places.  This is lossy (rosetta's
+// convert.StringOk formats floats to two decimals), which is acceptable for a
+// sub-pixel column width.  Pinned so a future rosetta change is caught.
+func TestDrawColumnWidth_FloatIsTwoDecimals(t *testing.T) {
+	assert.Contains(t, columnWidthTable(t, 33.333), `style="width; 33.33"`)
+	assert.Contains(t, columnWidthTable(t, float64(150)), `style="width; 150.00"`)
+}
+
+// When the column carries no "column-width" option, the header cell gets no width
+// style at all.
+func TestDrawColumnWidth_Absent(t *testing.T) {
+	result := columnWidthTable(t, nil)
+	assert.Contains(t, result, `<td class="grid-cell"><div>Name</div>`) // header cell, no style attr
+}
+
+// An empty-string width is treated as "no width": GetString returns "", which the
+// width != "" guard skips, so no width style is emitted.
+func TestDrawColumnWidth_EmptyString(t *testing.T) {
+	result := columnWidthTable(t, "")
+	assert.Contains(t, result, `<td class="grid-cell"><div>Name</div>`) // no style attr
+}
+
 // sharedForm returns a schema + form whose columns carry non-nil Options maps,
 // so that any accidental write to the shared form is observable.
 func sharedForm() (schema.Schema, form.Element) {
