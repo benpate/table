@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/benpate/form"
 	"github.com/benpate/rosetta/null"
 	"github.com/benpate/rosetta/schema"
 	"github.com/stretchr/testify/assert"
@@ -276,6 +277,79 @@ func TestDoEdit_ValidationClampsInteger(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.EqualValues(t, 150, db.Data[0]["age"]) // clamped to Maximum
+}
+
+/******************************************
+ * DoEdit() - Field Allow-listing (Mass-Assignment Guard)
+ *
+ * DoEdit writes only the fields it finds in the Form (via AllElements), never the
+ * keys it finds in the caller-supplied `data`.  That makes the Form an allow-list:
+ * a client cannot write a column that is not an editable Form field, no matter what
+ * keys it injects into `data`.  These tests pin that invariant, since the only thing
+ * enforcing it is AllElements()'s behavior -- which lives in the (recently upgraded)
+ * form package.
+ ******************************************/
+
+// newAllowListTable assembles a Table whose row schema has a "secret" field that the
+// caller might try to inject.  Whether "secret" appears in the Form (and how) is left
+// to each test via the supplied Form children.
+func newAllowListTable(children []form.Element) Table {
+	s := schema.Schema{
+		Element: schema.Object{
+			Properties: schema.ElementMap{
+				"data": schema.Array{
+					MinLength: 1,
+					MaxLength: 6,
+					Items: schema.Object{
+						Properties: schema.ElementMap{
+							"name":   schema.String{},
+							"age":    schema.Integer{},
+							"secret": schema.String{},
+						},
+					},
+				},
+			},
+		},
+	}
+	f := form.Element{Type: "layout-vertical", Children: children}
+	return New(&s, &f, testData(), "data", testIconProvider{}, "http://localhost/table")
+}
+
+// A key in `data` that exists in the schema but has no matching Form field is
+// silently ignored -- DoEdit never writes it.
+func TestDoEdit_IgnoresKeyNotInForm(t *testing.T) {
+
+	// Form exposes only "name" and "age"; "secret" is absent from the Form.
+	table := newAllowListTable([]form.Element{
+		{Type: "text", Label: "Name", Path: "name"},
+		{Type: "text", Label: "Age", Path: "age"},
+	})
+	db := table.Object.(*testDatabase)
+
+	err := table.DoEdit(map[string]any{"name": "Bob", "age": 1, "secret": "INJECTED"}, 0)
+
+	require.NoError(t, err)
+	assert.Equal(t, "Bob", db.Data[0]["name"])
+	assert.Nil(t, db.Data[0]["secret"]) // never written: not an editable Form field
+}
+
+// A ReadOnly Form field is omitted by AllElements, so a client cannot set it through
+// DoEdit even though it appears in the Form.
+func TestDoEdit_IgnoresReadOnlyField(t *testing.T) {
+
+	// "secret" IS in the Form, but marked ReadOnly.
+	table := newAllowListTable([]form.Element{
+		{Type: "text", Label: "Name", Path: "name"},
+		{Type: "text", Label: "Age", Path: "age"},
+		{Type: "text", Label: "Secret", Path: "secret", ReadOnly: true},
+	})
+	db := table.Object.(*testDatabase)
+
+	err := table.DoEdit(map[string]any{"name": "Bob", "age": 1, "secret": "INJECTED"}, 0)
+
+	require.NoError(t, err)
+	assert.Equal(t, "Bob", db.Data[0]["name"])
+	assert.Nil(t, db.Data[0]["secret"]) // never written: ReadOnly fields are not editable
 }
 
 /******************************************
