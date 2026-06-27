@@ -86,7 +86,16 @@ func (widget Table) DoEdit(data map[string]any, editIndex int) error {
 		}
 	}
 
-	// Try to add/edit the row in the data table
+	// Try to add/edit the row in the data table.
+	//
+	// NOTE: This loop is not atomic.  Schema.Set validates each value as it writes
+	// (rosetta v0.26+), so a later field failing validation leaves earlier fields
+	// already written to widget.Object.  This is acceptable by contract: a caller
+	// that receives an error MUST discard the whole object rather than persist it.
+	//
+	// Only fields present in the Form are written, and AllElements() omits ReadOnly
+	// fields -- so a client cannot set a column that is not editable, and extra keys
+	// in `data` that are not in the Form are silently ignored.
 	for _, field := range widget.Form.AllElements() {
 		path := list.ByDot(widget.Path, strconv.Itoa(editIndex), field.Path)
 		if err := widget.Schema.Set(widget.Object, path.String(), data[field.Path]); err != nil {
