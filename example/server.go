@@ -1,3 +1,5 @@
+// Command server is a small demo HTTP server that renders the table widget and
+// updates an in-memory database as the user edits it.
 package main
 
 import (
@@ -45,7 +47,7 @@ func main() {
 // as a go Template, and serves this file as the response.
 func getFile(filename string) http.HandlerFunc {
 
-	return func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, _ *http.Request) {
 
 		// Read the file from the filesystem
 		// (super inefficient, but works great for a quick example)
