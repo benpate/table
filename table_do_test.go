@@ -4,6 +4,8 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/benpate/rosetta/null"
+	"github.com/benpate/rosetta/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -191,6 +193,89 @@ func TestDoEdit_EditNotAllowed(t *testing.T) {
 	err := table.DoEdit(map[string]any{"name": "nope"}, 0) // editing an existing row
 
 	require.Error(t, err)
+}
+
+/******************************************
+ * DoEdit() - Schema Validation on Set
+ *
+ * As of rosetta v0.26+, Schema.Set runs the schema's validation rules before
+ * writing.  DoEdit therefore surfaces validation failures as errors, and stores
+ * the rewritten (clamped/truncated) value when a rule rewrites rather than rejects.
+ * The unconstrained schema in testSchema() never exercises this, so these tests
+ * use a constrained schema instead.
+ ******************************************/
+
+// newConstrainedTable assembles a Table whose row schema constrains its fields:
+// "name" is required and capped at 5 characters, and "age" is clamped to 0..150.
+func newConstrainedTable() Table {
+	s := schema.Schema{
+		Element: schema.Object{
+			Properties: schema.ElementMap{
+				"data": schema.Array{
+					MinLength: 1,
+					MaxLength: 6,
+					Items: schema.Object{
+						Properties: schema.ElementMap{
+							"name": schema.String{Required: true, MaxLength: 5},
+							"age":  schema.Integer{Minimum: null.NewInt64(0), Maximum: null.NewInt64(150)},
+						},
+					},
+				},
+			},
+		},
+	}
+	f := testForm()
+	return New(&s, &f, testData(), "data", testIconProvider{}, "http://localhost/table")
+}
+
+// A value that violates a "required" rule makes Schema.Set fail, so DoEdit aborts
+// the whole row edit with an error.
+func TestDoEdit_ValidationRejectsRequired(t *testing.T) {
+
+	table := newConstrainedTable()
+	db := table.Object.(*testDatabase)
+
+	err := table.DoEdit(map[string]any{"name": "", "age": 30}, 0)
+
+	require.Error(t, err)
+	assert.Equal(t, "John Connor", db.Data[0]["name"]) // original row is left untouched
+}
+
+// A value that cannot be coerced to the field's type (a non-numeric integer) makes
+// Schema.Set fail, so DoEdit returns an error rather than storing a zero.
+func TestDoEdit_ValidationRejectsBadType(t *testing.T) {
+
+	table := newConstrainedTable()
+
+	err := table.DoEdit(map[string]any{"name": "Bob", "age": "not-a-number"}, 0)
+
+	require.Error(t, err)
+}
+
+// When a rule REWRITES rather than rejects, Schema.Set stores the rewritten value:
+// a name longer than MaxLength is truncated to fit.
+func TestDoEdit_ValidationTruncatesString(t *testing.T) {
+
+	table := newConstrainedTable()
+	db := table.Object.(*testDatabase)
+
+	err := table.DoEdit(map[string]any{"name": "Abcdefghij", "age": 30}, 0)
+
+	require.NoError(t, err)
+	assert.Equal(t, "Abcde", db.Data[0]["name"]) // truncated to MaxLength (5 runes)
+}
+
+// An integer above the schema's Maximum is clamped down to that maximum rather
+// than rejected.
+func TestDoEdit_ValidationClampsInteger(t *testing.T) {
+
+	table := newConstrainedTable()
+	db := table.Object.(*testDatabase)
+
+	err := table.DoEdit(map[string]any{"name": "Bob", "age": 999}, 0)
+
+	require.NoError(t, err)
+	assert.EqualValues(t, 150, db.Data[0]["age"]) // clamped to Maximum
 }
 
 /******************************************
