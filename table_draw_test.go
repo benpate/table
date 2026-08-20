@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/benpate/form"
+	"github.com/benpate/html"
 	"github.com/benpate/rosetta/mapof"
 	"github.com/benpate/rosetta/schema"
 	"github.com/benpate/rosetta/sliceof"
@@ -613,19 +614,319 @@ func TestDrawView_WriteError(t *testing.T) {
 }
 
 /******************************************
- * Unreachable / Undocumented Paths
+ * focusField()
+ ******************************************/
+
+// focusField must copy the column's existing options across, not just set "focus"
+// on a fresh map -- otherwise focusing a column silently drops its configuration
+// (column-width, and anything else the caller set).
+func TestFocusField_PreservesExistingOptions(t *testing.T) {
+
+	field := form.Element{
+		Type:    "text",
+		Label:   "Name",
+		Path:    "name",
+		Options: mapof.Any{"column-width": "50%", "custom": 42},
+	}
+
+	result := focusField(field)
+
+	// The focus flag is added...
+	assert.Equal(t, true, result.Options["focus"])
+
+	// ...and every pre-existing option survives.
+	assert.Equal(t, "50%", result.Options["column-width"])
+	assert.Equal(t, 42, result.Options["custom"])
+
+	// The original field's map is untouched (no "focus" leaked back into it).
+	_, ok := field.Options["focus"]
+	assert.False(t, ok)
+	assert.Len(t, field.Options, 2)
+}
+
+// A column with no Options at all still gets a usable map back.
+func TestFocusField_NilOptions(t *testing.T) {
+
+	result := focusField(form.Element{Type: "text", Path: "name"})
+
+	assert.Equal(t, true, result.Options["focus"])
+	assert.Len(t, result.Options, 1)
+}
+
+// Focusing a column whose options are shared must not write through to the
+// original map, since Form definitions are shared across concurrent renders.
+func TestFocusField_DoesNotAliasSharedMap(t *testing.T) {
+
+	shared := mapof.Any{"column-width": "10%"}
+	field := form.Element{Type: "text", Path: "name", Options: shared}
+
+	result := focusField(field)
+	result.Options["column-width"] = "MUTATED"
+
+	assert.Equal(t, "10%", shared["column-width"], "focusField must deep-copy the options map")
+}
+
+/******************************************
+ * Row Guards (white-box)
  *
- * A handful of error branches are not exercised by this suite because they
- * cannot be triggered through the public API with a well-formed schema:
+ * drawTable only calls these helpers when the matching permission is already
+ * true, so the guards cannot fire through the public API. They are called
+ * directly here to pin what they do if that ever changes.
+ ******************************************/
+
+// rowSchemaFor returns a standalone row schema for calling the row helpers directly.
+func rowSchemaFor() schema.Schema {
+	return schema.New(schema.Object{
+		Properties: schema.ElementMap{"name": schema.String{}, "age": schema.Integer{}},
+	})
+}
+
+// drawAddRow refuses silently: it writes nothing and reports no error.
+func TestDrawAddRow_GuardWhenNotAllowed(t *testing.T) {
+
+	table := newTestTable()
+	rowSchema := rowSchemaFor()
+	builder := html.New()
+
+	err := table.drawAddRow(&rowSchema, false, builder)
+
+	require.NoError(t, err)
+	assert.Empty(t, builder.String(), "the guard must not emit any markup")
+}
+
+// drawEditRow refuses loudly, because silently rendering a non-editable row as
+// editable would be a permissions failure rather than a cosmetic one.
+func TestDrawEditRow_GuardWhenNotAllowed(t *testing.T) {
+
+	table := newTestTable()
+	rowSchema := rowSchemaFor()
+	builder := html.New()
+
+	err := table.drawEditRow(&rowSchema, nil, false, 0, builder)
+
+	require.Error(t, err)
+	assert.Empty(t, builder.String(), "the guard must not emit any markup")
+}
+
+/******************************************
+ * Empty and Degenerate Tables
+ ******************************************/
+
+// A table with no rows renders its header and (when permitted) the add control,
+// rather than failing or emitting a malformed table.
+func TestDrawView_EmptyTable(t *testing.T) {
+
+	table := newTestTable()
+	table.Object.(*testDatabase).Data = sliceof.NewObject[mapof.Any]()
+
+	result, err := table.DrawViewString()
+
+	require.NoError(t, err)
+	assert.Contains(t, result, "<div>Name</div>")      // header still renders
+	assert.Equal(t, 1, strings.Count(result, "<tr"))   // header row only
+	assert.Equal(t, 1, strings.Count(result, "</tr>")) // ...and it is closed
+	assert.NotContains(t, result, `class="grid-row`)   // no data rows
+	assert.Contains(t, result, "plus Add a Row")       // adding is still offered
+	assert.NotContains(t, result, "hx-confirm")        // nothing to delete
+}
+
+// An empty table in ADD mode renders exactly one editable row.
+func TestDrawAdd_EmptyTable(t *testing.T) {
+
+	table := newTestTable()
+	table.Object.(*testDatabase).Data = sliceof.NewObject[mapof.Any]()
+
+	result, err := table.DrawAddString()
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, strings.Count(result, "<tr"))   // header + the new row
+	assert.Equal(t, 2, strings.Count(result, "</tr>")) // both closed
+	assert.Contains(t, result, `<input name="name"`)
+}
+
+// With no rows to draw, a broken Form surfaces from drawAddRow rather than from
+// drawViewRow -- the only way to reach drawAddRow's field-rendering error.
+func TestDrawAdd_EmptyTableFieldError(t *testing.T) {
+
+	table := newTestTable()
+	table.Object.(*testDatabase).Data = sliceof.NewObject[mapof.Any]()
+	breakForm(&table)
+
+	result, err := table.DrawAddString()
+
+	require.Error(t, err)
+	assert.Empty(t, result)
+}
+
+// A Form with no columns is degenerate but must not panic: the per-column width
+// divides by the column count, and the focus clamp indexes the column list.
+func TestDrawView_ZeroColumnForm(t *testing.T) {
+
+	table := newTestTable()
+	table.Form = pointerTo(form.Element{Type: "layout-vertical", Children: []form.Element{}})
+
+	result, err := table.DrawViewString()
+
+	require.NoError(t, err)
+	assert.Contains(t, result, `<table class="grid">`)
+	assert.Equal(t, strings.Count(result, "<tr"), strings.Count(result, "</tr>"))
+}
+
+// The same degenerate form, reached through the public Draw router with a focus
+// param, which is where the clamp against len(Children) actually runs.
+func TestDraw_ZeroColumnFormWithFocus(t *testing.T) {
+
+	table := newTestTable()
+	table.Form = pointerTo(form.Element{Type: "layout-vertical", Children: []form.Element{}})
+
+	var buffer bytes.Buffer
+	err := table.Draw(mustURL(t, "http://x?edit=0&focus=3"), &buffer)
+
+	require.NoError(t, err)
+}
+
+/******************************************
+ * Output Escaping
  *
- *   - drawTable: the `tableSchema.Get(...)` per-row error never fires once
- *     getTableElement has already validated the array.
- *   - drawAddRow: the "Paranoid double-check" `if !widget.CanAdd` guard is
- *     unreachable because drawTable only calls it when CanAdd is true.
- *   - drawEditRow: the "Editing is not allowed. THIS SHOULD NEVER HAPPEN"
- *     guard is unreachable because drawTable only calls it when CanEdit is true.
- *   - DoEdit: the `Schema.Get(...)` / `Schema.Set(...)` failure paths require a
- *     schema/object mismatch that the table's own schema prevents.
+ * Row values come from stored data that a user typed, so they reach the renderer
+ * untrusted. The escaping is done by the form/html packages rather than here, so
+ * these tests pin the guarantee at this package's boundary -- a change in either
+ * dependency that reopened an injection would otherwise pass silently.
+ ******************************************/
+
+// hostileTable returns a table whose single row carries the given "name" value.
+func hostileTable(value string) Table {
+	table := newTestTable()
+	table.Object.(*testDatabase).Data = sliceof.Object[mapof.Any]{
+		mapof.Any{"name": value, "age": 1},
+	}
+	return table
+}
+
+func TestDrawView_EscapesHostileValue(t *testing.T) {
+
+	result, err := hostileTable(`<script>alert(1)</script>`).DrawViewString()
+
+	require.NoError(t, err)
+	assert.NotContains(t, result, "<script>")
+	assert.Contains(t, result, "&lt;script&gt;alert(1)&lt;/script&gt;")
+}
+
+// In edit mode the value lands inside an attribute, where a bare quote would
+// break out of value="..." -- a different escaping context from the view cell.
+func TestDrawEdit_EscapesHostileValue(t *testing.T) {
+
+	result, err := hostileTable(`" onfocus="alert(1)`).DrawEditString(0)
+
+	require.NoError(t, err)
+	assert.NotContains(t, result, `" onfocus="alert(1)"`)
+	assert.Contains(t, result, "&#34;")
+}
+
+func TestDrawEdit_EscapesHostileScriptValue(t *testing.T) {
+
+	result, err := hostileTable(`</textarea><script>alert(1)</script>`).DrawEditString(0)
+
+	require.NoError(t, err)
+	assert.NotContains(t, result, "<script>")
+}
+
+// Column labels come from the Form definition rather than from a user, but they
+// are rendered into the header cell and escaped all the same.
+func TestDrawView_EscapesColumnLabel(t *testing.T) {
+
+	table := newTestTable()
+	table.Form = pointerTo(form.Element{
+		Type:     "layout-vertical",
+		Children: []form.Element{{Type: "text", Label: `<img src=x onerror=alert(1)>`, Path: "name"}},
+	})
+
+	result, err := table.DrawViewString()
+
+	require.NoError(t, err)
+	assert.NotContains(t, result, "<img src=x")
+	assert.Contains(t, result, "&lt;img")
+}
+
+/******************************************
+ * Unusual Row Values
+ ******************************************/
+
+// Invalid UTF-8 in stored data must render without panicking or truncating the
+// document. Go writes the raw bytes through, so the assertion is only that the
+// surrounding markup is intact.
+func TestDrawView_InvalidUTF8Value(t *testing.T) {
+
+	result, err := hostileTable("bad\xff\xfe\x00utf8").DrawViewString()
+
+	require.NoError(t, err)
+	assert.Contains(t, result, "<div>Name</div>")
+	assert.Equal(t, strings.Count(result, "<tr"), strings.Count(result, "</tr>"))
+}
+
+// A very long value is rendered in full (the widget imposes no truncation of its
+// own), and does not corrupt the surrounding markup.
+func TestDrawView_VeryLongValue(t *testing.T) {
+
+	long := strings.Repeat("A", 100_000)
+
+	result, err := hostileTable(long).DrawViewString()
+
+	require.NoError(t, err)
+	assert.Contains(t, result, long)
+	assert.Equal(t, strings.Count(result, "<tr"), strings.Count(result, "</tr>"))
+}
+
+// A table filled to its schema MaxLength renders every row and drops the add
+// control, with the row markup still balanced.
+func TestDrawView_AtMaxLength(t *testing.T) {
+
+	table := newTestTable() // schema MaxLength == 6
+	rows := sliceof.NewObject[mapof.Any]()
+	for i := 0; i < 6; i++ {
+		rows = append(rows, mapof.Any{"name": "row-" + strconv.Itoa(i), "age": i})
+	}
+	table.Object.(*testDatabase).Data = rows
+
+	result, err := table.DrawViewString()
+
+	require.NoError(t, err)
+	assert.Equal(t, 7, strings.Count(result, "<tr"))   // header + 6 rows
+	assert.Equal(t, 7, strings.Count(result, "</tr>")) // all closed
+	assert.NotContains(t, result, "Add a Row")         // at capacity
+}
+
+// Row data must be held in a type rosetta can index into. A plain
+// []map[string]any is not one: the top-level Schema.Get succeeds (it returns the
+// slice) and the row count is right, but reading row "0" back out fails. This is
+// the failure that a table configured from ordinary Go maps hits, so it is
+// reported rather than rendered as an empty table.
+func TestDrawView_UnindexableRowData(t *testing.T) {
+
+	rowSchema := schema.Object{Properties: schema.ElementMap{"name": schema.String{}, "age": schema.Integer{}}}
+	s := schema.New(schema.Array{MaxLength: 10, Items: rowSchema})
+	f := testForm()
+
+	data := []map[string]any{{"name": "John Connor", "age": 20}}
+	table := New(&s, &f, &data, "", testIconProvider{}, "http://x")
+
+	result, err := table.DrawViewString()
+
+	require.Error(t, err)
+	assert.Empty(t, result)
+
+	// The same schema and data work when the slice is one rosetta understands.
+	ok := sliceof.Object[mapof.Any]{mapof.Any{"name": "John Connor", "age": 20}}
+	table.Object = &ok
+
+	result, err = table.DrawViewString()
+
+	require.NoError(t, err)
+	assert.Contains(t, result, "John Connor")
+}
+
+/******************************************
+ * Shared Helpers
  ******************************************/
 
 // pointerTo returns a pointer to the given value. Used to build inline schemas.

@@ -3,6 +3,7 @@ package table
 import (
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/benpate/form"
@@ -95,9 +96,15 @@ type testLookupProvider struct{}
 func (testLookupProvider) Group(_ string) form.LookupGroup { return nil }
 
 /******************************************
- * Original Example (kept for documentation)
+ * Package Example
  ******************************************/
 
+// ExampleTable builds a read-only table and prints part of the generated markup.
+//
+// Two details are easy to get wrong, and the Output below is what catches them:
+// the row data has to be in a type rosetta can walk into (a plain
+// []map[string]any is not), and every column's Type has to name a form widget
+// that is actually registered.
 func ExampleTable() {
 
 	// Data schema defines the layout of the data.
@@ -111,28 +118,41 @@ func ExampleTable() {
 		},
 	})
 
-	// UI schema defines which field are displayed, and in which order
+	// UI schema defines which fields are displayed, and in which order. The "text"
+	// widget takes its input type from the data schema, so the "age" column still
+	// renders as <input type="number">.
 	f := form.Element{
 		Type: "layout-vertical",
 		Children: []form.Element{
 			{Type: "text", Label: "Name", Path: "name"},
-			{Type: "number", Label: "Age", Path: "age"},
+			{Type: "text", Label: "Age", Path: "age"},
 		},
 	}
 
-	// Define some data to render
-	data := []map[string]any{
+	// Define some data to render.
+	data := sliceof.Object[mapof.Any]{
 		{"name": "John Connor", "age": 20},
 		{"name": "Sarah Connor", "age": 45},
 	}
 
-	// Create the new table and render it in HTML
-	table := New(&s, &f, &data, "", testIconProvider{}, "http://localhost/update-form")
-	fmt.Println(table.DrawViewString())
-}
+	// Create the new table and render it as HTML. The last argument before the URL
+	// is your own IconProvider, which supplies the markup for the row controls.
+	table := New(&s, &f, &data, "", testIconProvider{}, "/update-form")
 
-func TestTable(_ *testing.T) {
-	ExampleTable()
+	result, err := table.DrawViewString()
+
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	// Print a digestible slice of the markup rather than all ~1.6kb of it.
+	fmt.Println(strings.Count(result, `<tr class="grid-row`), "data rows")
+	fmt.Println(result[strings.Index(result, "<tr") : strings.Index(result, "</tr>")+len("</tr>")])
+
+	// Output:
+	// 2 data rows
+	// <tr class="grid-header"><td class="grid-cell"><div>Name</div></td><td class="grid-cell"><div>Age</div></td><td class="grid-cell grid-controls"></td></tr>
 }
 
 /******************************************
@@ -305,6 +325,107 @@ func TestGetURL_TargetWithExistingQuery(t *testing.T) {
 
 	// Unrecognized actions still return the bare TargetURL, untouched
 	check("unknown", 0, 0, "http://localhost/table?section=tasks")
+}
+
+// A TargetURL that url.Parse rejects makes getURL fall back to returning the raw
+// string. TargetURL is a plain string field, so this is reachable by simple
+// misconfiguration -- not a theoretical branch.
+func TestGetURL_UnparseableTarget(t *testing.T) {
+
+	table := newTestTable()
+
+	// Each of these fails url.Parse for a different reason: an unclosed IPv6
+	// literal, a missing scheme, a raw control character, a space in the host,
+	// and a bad percent-escape.
+	for _, target := range []string{"http://[::1", "://x", "\x7f", "http://a b.com", "%zz"} {
+
+		table.TargetURL = target
+
+		// Every action falls back to the unmodified TargetURL, with no panic.
+		assert.Equal(t, target, table.getURL("add", 0, 0), "target=%q", target)
+		assert.Equal(t, target, table.getURL("edit", 1, 2), "target=%q", target)
+		assert.Equal(t, target, table.getURL("delete", 3, 0), "target=%q", target)
+	}
+}
+
+// An empty TargetURL parses successfully (into an empty URL), so the action's
+// query params are still appended.
+func TestGetURL_EmptyTarget(t *testing.T) {
+
+	table := newTestTable()
+	table.TargetURL = ""
+
+	assert.Equal(t, "?add=true", table.getURL("add", 0, 0))
+	assert.Equal(t, "", table.getURL("unknown", 0, 0))
+}
+
+// FuzzGetURL throws arbitrary target URLs and actions at getURL. It never panics,
+// and an unrecognized action always returns the TargetURL completely untouched --
+// the property callers rely on to detect "no action".
+func FuzzGetURL(f *testing.F) {
+
+	f.Add("http://localhost/table", "add", 0, 0)
+	f.Add("http://localhost/table?a=b", "edit", 1, 2)
+	f.Add("", "delete", -1, -1)
+	f.Add("http://[::1", "add", 0, 0)
+	f.Add("://x", "edit", 0, 0)
+	f.Add("%zz", "", 0, 0)
+	f.Add("http://x/\u00e9\u00e9", "unknown", 2147483647, -2147483648)
+
+	f.Fuzz(func(t *testing.T, target string, action string, row int, col int) {
+
+		table := newTestTable()
+		table.TargetURL = target
+
+		// Called for every action, not just the asserted ones -- the point is that
+		// getURL survives an arbitrary TargetURL whatever the action. Moving this
+		// into the `if` (as scopeguard suggests) would stop exercising the parse
+		// path for "add", "edit", and "delete" entirely.
+		result := table.getURL(action, row, col) // nolint:scopeguard
+
+		// An action getURL does not recognize is echoed back verbatim.
+		if action != "add" && action != "edit" && action != "delete" {
+			require.Equal(t, target, result, "unrecognized action %q must not rewrite the URL", action)
+		}
+	})
+}
+
+/******************************************
+ * Required-Field Contract
+ *
+ * Schema, Form, and Icons are documented as required, and New() takes all three.
+ * Leaving one nil is a programming error, and the widget panics rather than
+ * rendering something wrong. These tests pin that contract so the behavior is a
+ * decision rather than an accident -- note that it is NOT uniform: a nil Schema
+ * is reported as an error on the Draw path (getTableElement guards it) but
+ * panics on the Do path.
+ ******************************************/
+
+func TestTable_NilSchemaPanicsInDoEdit(t *testing.T) {
+
+	table := newTestTable()
+	table.Schema = nil
+
+	// Contrast with TestGetTableElement_NilSchema, where the Draw path returns a
+	// clean error for exactly the same misconfiguration.
+	assert.Panics(t, func() { _ = table.DoEdit(map[string]any{"name": "x"}, 0) })
+}
+
+func TestTable_NilFormPanicsInDraw(t *testing.T) {
+
+	table := newTestTable()
+	table.Form = nil
+
+	assert.Panics(t, func() { _, _ = table.DrawViewString() })
+}
+
+func TestTable_NilIconsPanicsInDraw(t *testing.T) {
+
+	table := newTestTable()
+	table.Icons = nil
+
+	// The icons are only reached once rows are being rendered.
+	assert.Panics(t, func() { _, _ = table.DrawViewString() })
 }
 
 /******************************************

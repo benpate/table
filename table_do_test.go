@@ -2,6 +2,7 @@ package table
 
 import (
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/benpate/form"
@@ -34,6 +35,32 @@ func FuzzDo(f *testing.F) {
 
 		// We don't care whether Do succeeds or fails, only that it does not panic.
 		_ = table.Do(params, map[string]any{"name": "fuzz", "age": 1})
+	})
+}
+
+// FuzzDoEdit drives the *data* side of an edit: the row index and each field
+// value come straight from an HTTP form, so any combination has to be survivable.
+// The property is that DoEdit either succeeds or returns an error -- never panics,
+// and never leaves the table longer than the schema's MaxLength.
+func FuzzDoEdit(f *testing.F) {
+
+	f.Add(0, "John", "20")
+	f.Add(2, "", "")
+	f.Add(-1, "x", "y")
+	f.Add(99, "x", "0")
+	f.Add(0, "\x00\xff", "1e400")
+	f.Add(0, strings.Repeat("A", 4096), "-9223372036854775808")
+	f.Add(0, "\u00e9\u00e9\u00e9", "007")
+
+	f.Fuzz(func(t *testing.T, editIndex int, name string, age string) {
+
+		table := newTestTable()
+		db := table.Object.(*testDatabase)
+
+		_ = table.DoEdit(map[string]any{"name": name, "age": age}, editIndex)
+
+		// The schema caps the table at 6 rows; no input may push it past that.
+		require.LessOrEqual(t, len(db.Data), 6, "editIndex=%d overflowed MaxLength", editIndex)
 	})
 }
 
@@ -192,6 +219,20 @@ func TestDoEdit_EditNotAllowed(t *testing.T) {
 	table.CanEdit = false
 
 	err := table.DoEdit(map[string]any{"name": "nope"}, 0) // editing an existing row
+
+	require.Error(t, err)
+}
+
+// A misconfigured Object (not reachable through rosetta) makes Schema.Get fail
+// before any permission check runs, so DoEdit reports the error instead of
+// writing anything. The Draw path fails the same way -- see
+// TestDrawViewString_BadObject.
+func TestDoEdit_BadObject(t *testing.T) {
+
+	table := newTestTable()
+	table.Object = "not a pointer-getter"
+
+	err := table.DoEdit(map[string]any{"name": "Bob", "age": 1}, 0)
 
 	require.Error(t, err)
 }

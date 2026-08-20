@@ -11,6 +11,7 @@ import (
 
 	"github.com/benpate/derp"
 	"github.com/benpate/form"
+	"github.com/benpate/form/widget"
 	"github.com/benpate/rosetta/mapof"
 	"github.com/benpate/rosetta/schema"
 	"github.com/benpate/rosetta/sliceof"
@@ -23,6 +24,11 @@ var database Database
 // main initializes the app and starts an HTTP server.
 // After you run this program, you can view the demo at http://localhost:8080
 func main() {
+
+	// Register the standard form widgets ("text", "textarea", "select", ...).
+	// Without this, every column's Type is unrecognized and the table renders
+	// nothing but an error.
+	widget.UseAll()
 
 	// Initialize the database
 	database = getDefaultTableData()
