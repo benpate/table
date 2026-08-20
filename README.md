@@ -26,27 +26,41 @@ func ExampleTable() {
 		},
 	})
 
-	// UI schema defines which field are displayed, and in which order
+	// UI schema defines which fields are displayed, and in which order.  Each
+	// Type must name a registered form widget (see form/widget.UseAll).  The
+	// "text" widget takes its input type from the data schema, so the "age"
+	// column still renders as <input type="number">.
 	f := form.Element{
 		Type: "layout-vertical",
 		Children: []form.Element{
 			{Type: "text", Label: "Name", Path: "name"},
-			{Type: "number", Label: "Age", Path: "age"},
+			{Type: "text", Label: "Age", Path: "age"},
 		},
 	}
 
-	// Define some data to render
-	data := []map[string]any{
+	// Define some data to render.  The row data must live in a type that rosetta
+	// can index into -- sliceof.Object/mapof.Any here.  A plain []map[string]any
+	// will render the header and then fail on the first row.
+	data := sliceof.Object[mapof.Any]{
 		{"name": "John Connor", "age": 20},
 		{"name": "Sarah Connor", "age": 45},
 	}
 
-	// Create the new table and render it in HTML.  The last argument is your own
-	// implementation of the IconProvider interface, which supplies the control icons.
+	// Create the new table and render it in HTML.  iconProvider is your own
+	// implementation of the IconProvider interface, which supplies the markup for
+	// the add, edit, and delete controls.
 	table := New(&s, &f, &data, "", iconProvider, "http://localhost/update-form")
-	fmt.Println(table.DrawViewString())
+
+	result, err := table.DrawViewString()
+
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(result)
 }
 ```
+
 
 ## DO NOT USE
 
