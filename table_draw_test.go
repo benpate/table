@@ -482,6 +482,30 @@ func TestDrawEditString(t *testing.T) {
 	assert.Contains(t, result, `value="Sarah Connor"`) // row 1 loaded for editing
 }
 
+// TestDrawEditString_BalancedRowTags guards the row markup emitted in EDIT mode.
+// drawEditRow once closed only its final <td>, leaving the <tr> open so the next
+// row nested inside it -- so every row is counted here, not just inspected for
+// content.
+func TestDrawEditString_BalancedRowTags(t *testing.T) {
+
+	table := newTestTable()
+
+	result, err := table.DrawEditString(0)
+
+	require.NoError(t, err)
+
+	// The test table has 2 rows, so the output is a header row plus 2 data rows.
+	// Every opening tag must have exactly one match.
+	assert.Equal(t, 3, strings.Count(result, "<tr"), "expected 3 opening <tr> tags")
+	assert.Equal(t, 3, strings.Count(result, "</tr>"), "every <tr> must be closed")
+	assert.Equal(t, strings.Count(result, "<td"), strings.Count(result, "</td>"), "every <td> must be closed")
+
+	// A row may never open inside another row: the edit row has to close before
+	// the following view row opens.
+	editRow := result[strings.Index(result, "grid-editable"):]
+	assert.Less(t, strings.Index(editRow, "</tr>"), strings.Index(editRow, "<tr"), "the edit row must close before the next row opens")
+}
+
 func TestDrawEditString_OutOfBounds(t *testing.T) {
 
 	table := newTestTable()

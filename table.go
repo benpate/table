@@ -124,6 +124,8 @@ func (widget Table) getURL(action string, row int, col int) string {
 	return parsed.String()
 }
 
+// getTableElement returns the schema.Array that holds this table's rows,
+// failing when Path does not resolve to an array.
 func (widget Table) getTableElement() (schema.Array, error) {
 
 	const location = "table.Widget.getTableElement"

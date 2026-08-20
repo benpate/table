@@ -206,6 +206,9 @@ func (widget Table) drawTable(editRow null.Int, addRow bool, focusColumn int, bu
 	// Header row
 	b.TR().Class("grid-header")
 	for _, field := range widget.Form.Children {
+		// b.TD() opens the cell as a side effect, so it must run unconditionally.
+		// Moving it into the `if` below (as scopeguard suggests) would drop the cell
+		// for every column that has no explicit width.
 		td := b.TD().Class("grid-cell") // nolint:scopeguard
 		if width := field.Options.GetString("column-width"); width != "" {
 			td.Style("width", width)
@@ -282,6 +285,7 @@ func focusField(field form.Element) form.Element {
 	return field
 }
 
+// drawAddRow writes an empty, editable row for entering a new record.
 func (widget Table) drawAddRow(rowSchema *schema.Schema, canAdd bool, b *html.Builder) error {
 
 	const location = "table.Widget.drawAddRow"
@@ -320,6 +324,8 @@ func (widget Table) drawAddRow(rowSchema *schema.Schema, canAdd bool, b *html.Bu
 	return nil
 }
 
+// drawEditRow writes an existing row as editable form fields, focusing the
+// requested column.
 func (widget Table) drawEditRow(rowSchema *schema.Schema, rowValue any, canEdit bool, focusColumn int, b *html.Builder) error {
 
 	const location = "table.Widget.drawEditRow"
@@ -355,11 +361,15 @@ func (widget Table) drawEditRow(rowSchema *schema.Schema, rowValue any, canEdit 
 	b.Button().Type("submit").Class("text-green").InnerHTML(widget.Icons.Get("save")).Close()
 	b.Space()
 	b.Button().Type("button").Data("hx-get", widget.TargetURL).InnerHTML(widget.Icons.Get("cancel")).Close()
+	b.Close() // TD
+
 	b.Close() // TR
 
 	return nil
 }
 
+// drawViewRow writes an existing row as read-only values, along with whichever
+// edit and delete controls are permitted.
 func (widget Table) drawViewRow(rowSchema *schema.Schema, rowIndex int, rowValue any, canEdit bool, canDelete bool, b *html.Builder) error {
 
 	const location = "table.Widget.drawViewRow"
@@ -371,6 +381,7 @@ func (widget Table) drawViewRow(rowSchema *schema.Schema, rowIndex int, rowValue
 
 	for colIndex, field := range widget.Form.Children {
 
+		// Opened unconditionally -- see the header row above.
 		cell := b.TD().Class("grid-cell").Style(width) // nolint:scopeguard
 
 		if canEdit {

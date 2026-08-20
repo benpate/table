@@ -32,9 +32,13 @@ func main() {
 	mux.Handle("/index.html", getFile("index.html"))
 	mux.Handle("/table", handleTable())
 
-	// Start the HTTP server
+	// Start the HTTP server. This is a throwaway localhost demo, so the missing
+	// read/write timeouts cannot be exploited. Do NOT copy this line into a real
+	// server: use an http.Server with ReadHeaderTimeout, ReadTimeout, and
+	// WriteTimeout set.
 	fmt.Println("Listening on http://localhost:8080")
-	if err := http.ListenAndServe(":8080", mux); err != nil {
+
+	if err := http.ListenAndServe(":8080", mux); err != nil { // #nosec G114
 		panic(err)
 	}
 }
@@ -215,6 +219,7 @@ func getDefaultTableData() Database {
 type IconProvider struct {
 }
 
+// Get returns the Bootstrap Icons markup for the named icon.
 func (i IconProvider) Get(name string) string {
 
 	switch name {
@@ -238,6 +243,7 @@ func (i IconProvider) Get(name string) string {
 	return name
 }
 
+// Write writes the markup for the named icon to the provided writer.
 func (i IconProvider) Write(name string, writer io.Writer) {
 	_, _ = writer.Write([]byte(i.Get(name)))
 }
@@ -288,7 +294,16 @@ func bind(r *http.Request) (map[string]any, error) {
 // writeError writes an error to the http.ResponseWriter.
 // This is just some sugar to make the examples more readable.
 func writeError(writer http.ResponseWriter, err error) {
+
+	// RULE: Declare the response as plain text so the browser cannot sniff the
+	// error message as HTML. derp errors render as "location: message" (both
+	// compile-time constants), but a non-derp error -- ParseForm's, for instance --
+	// can quote a fragment of the request back at the client.
+	writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	writer.WriteHeader(http.StatusInternalServerError)
+
+	// #nosec G705 -- the Content-Type above prevents the response from ever being
+	// interpreted as HTML, so the error text cannot become a scripting vector.
 	_, _ = writer.Write([]byte(err.Error()))
 	derp.Report(err)
 }
