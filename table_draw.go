@@ -10,7 +10,6 @@ import (
 	"github.com/benpate/form"
 	"github.com/benpate/html"
 	"github.com/benpate/rosetta/convert"
-	"github.com/benpate/rosetta/mapof"
 	"github.com/benpate/rosetta/null"
 	"github.com/benpate/rosetta/schema"
 )
@@ -210,7 +209,7 @@ func (widget Table) drawTable(editRow null.Int, addRow bool, focusColumn int, bu
 		// Moving it into the `if` below (as scopeguard suggests) would drop the cell
 		// for every column that has no explicit width.
 		td := b.TD().Class("grid-cell") // nolint:scopeguard
-		if width := field.Options.GetString("column-width"); width != "" {
+		if width := field.Options.GetString("column-width", nil); width != "" {
 			td.Style("width", width)
 		}
 		b.Div().InnerText(field.Label).Close()
@@ -272,14 +271,11 @@ func (widget Table) drawTable(editRow null.Int, addRow bool, focusColumn int, bu
 }
 
 // focusField returns a copy of the form element with its "focus" option enabled.
-// It clones the Options map so the shared Form definition is never mutated during rendering.
+// It deep-copies the Options map so the shared Form definition is never mutated during rendering.
 func focusField(field form.Element) form.Element {
 
-	options := make(mapof.Any, len(field.Options)+1)
-	for key, value := range field.Options {
-		options[key] = value
-	}
-	options["focus"] = true
+	options := field.Options.Clone()
+	options.SetBool("focus", true)
 
 	field.Options = options
 	return field

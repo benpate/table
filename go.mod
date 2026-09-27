@@ -4,9 +4,9 @@ go 1.25.0
 
 require (
 	github.com/benpate/derp v0.39.0
-	github.com/benpate/form v0.28.0
+	github.com/benpate/form v0.32.0
 	github.com/benpate/html v0.18.0
-	github.com/benpate/rosetta v0.35.0
+	github.com/benpate/rosetta v0.43.0
 	github.com/stretchr/testify v1.12.1
 )
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/benpate/form"
 	"github.com/benpate/html"
+	"github.com/benpate/rosetta/loose"
 	"github.com/benpate/rosetta/mapof"
 	"github.com/benpate/rosetta/schema"
 	"github.com/benpate/rosetta/sliceof"
@@ -199,7 +200,7 @@ func FuzzDraw(f *testing.F) {
  * drawTable() - Header "column-width" Option
  *
  * A column's "column-width" option (form.Element.Options) becomes the CSS width of
- * its header cell, via mapof.Any.GetString.  These tests pin how each value type
+ * its header cell, via mapof.Template.GetString.  These tests pin how each value type
  * renders, including the accepted lossy two-decimal formatting of a float width.
  ******************************************/
 
@@ -211,7 +212,7 @@ func columnWidthTable(t *testing.T, width any) string {
 
 	s := testSchema()
 
-	options := mapof.Any{}
+	options := mapof.Template{}
 	if width != nil {
 		options["column-width"] = width
 	}
@@ -268,8 +269,8 @@ func sharedForm() (schema.Schema, form.Element) {
 	return testSchema(), form.Element{
 		Type: "layout-vertical",
 		Children: []form.Element{
-			{Type: "text", Label: "Name", Path: "name", Options: mapof.Any{}},
-			{Type: "text", Label: "Age", Path: "age", Options: mapof.Any{}},
+			{Type: "text", Label: "Name", Path: "name", Options: mapof.Template{}},
+			{Type: "text", Label: "Age", Path: "age", Options: mapof.Template{}},
 		},
 	}
 }
@@ -626,7 +627,7 @@ func TestFocusField_PreservesExistingOptions(t *testing.T) {
 		Type:    "text",
 		Label:   "Name",
 		Path:    "name",
-		Options: mapof.Any{"column-width": "50%", "custom": 42},
+		Options: mapof.Template{"column-width": "50%", "custom": 42},
 	}
 
 	result := focusField(field)
@@ -657,13 +658,48 @@ func TestFocusField_NilOptions(t *testing.T) {
 // original map, since Form definitions are shared across concurrent renders.
 func TestFocusField_DoesNotAliasSharedMap(t *testing.T) {
 
-	shared := mapof.Any{"column-width": "10%"}
+	shared := mapof.Template{"column-width": "10%"}
 	field := form.Element{Type: "text", Path: "name", Options: shared}
 
 	result := focusField(field)
 	result.Options["column-width"] = "MUTATED"
 
 	assert.Equal(t, "10%", shared["column-width"], "focusField must deep-copy the options map")
+}
+
+// Focusing a column copies its options at every depth, so a change to a nested option in the
+// focused copy never reaches the shared Form definition.
+func TestFocusField_DeepCopiesSharedOptions(t *testing.T) {
+
+	shared := mapof.Template{
+		"enum":  []form.LookupCode{{Value: "one", Label: "One"}},
+		"rules": map[string]any{"types": []any{"webp"}},
+	}
+	field := form.Element{Type: "select", Path: "name", Options: shared}
+
+	result := focusField(field)
+	result.Options["enum"].([]form.LookupCode)[0].Label = "MUTATED"
+	result.Options["rules"].(map[string]any)["types"].([]any)[0] = "MUTATED"
+
+	assert.Equal(t, "One", shared["enum"].([]form.LookupCode)[0].Label)
+	assert.Equal(t, "webp", shared["rules"].(map[string]any)["types"].([]any)[0])
+	assert.True(t, result.Options.GetBool("focus", nil))
+	assert.False(t, shared.GetBool("focus", nil))
+}
+
+// Focusing a parsed column keeps its compiled option templates, so they still render per row.
+func TestFocusField_KeepsOptionTemplates(t *testing.T) {
+
+	field, err := form.Parse(map[string]any{"type": "text", "path": "name", "options": map[string]any{"validator": "/v?name={{.name}}"}})
+	require.NoError(t, err)
+
+	result := focusField(field)
+	assert.True(t, result.Options.GetBool("focus", nil))
+	assert.IsType(t, loose.Template{}, result.Options["validator"])
+
+	rendered, err := result.Options.Evaluate("validator", mapof.Any{"name": "Sarah"})
+	require.NoError(t, err)
+	assert.Equal(t, "/v?name=Sarah", rendered)
 }
 
 /******************************************
