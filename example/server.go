@@ -291,6 +291,12 @@ func bind(r *http.Request) (map[string]any, error) {
 	}
 
 	for key, value := range r.Form {
+
+		// RULE: A key with no values has nothing to bind
+		if len(value) == 0 {
+			continue
+		}
+
 		result[key] = value[0]
 	}
 
