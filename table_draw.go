@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/benpate/derp"
 	"github.com/benpate/form"
@@ -210,7 +211,7 @@ func (widget Table) drawTable(editRow null.Int, addRow bool, focusColumn int, bu
 		// for every column that has no explicit width.
 		td := b.TD().Class("grid-cell") // nolint:scopeguard
 		if width := field.Options.GetString("column-width", nil); width != "" {
-			td.Style("width", width)
+			td.Style("width:" + cssLength(width))
 		}
 		b.Div().InnerText(field.Label).Close()
 		b.Close() // TD
@@ -268,6 +269,18 @@ func (widget Table) drawTable(editRow null.Int, addRow bool, focusColumn int, bu
 
 	return nil
 
+}
+
+// cssLength returns a column width as a CSS length, reading a bare number as pixels.
+func cssLength(width string) string {
+
+	// A bare number is not a valid CSS length (only zero may omit its unit)
+	if strings.Trim(width, "0123456789.") == "" {
+		return width + "px"
+	}
+
+	// Anything else ("50%", "12rem", "calc(...)") is already a CSS length
+	return width
 }
 
 // focusField returns a copy of the form element with its "focus" option enabled.

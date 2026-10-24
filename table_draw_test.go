@@ -201,7 +201,7 @@ func FuzzDraw(f *testing.F) {
  *
  * A column's "column-width" option (form.Element.Options) becomes the CSS width of
  * its header cell, via mapof.Template.GetString.  These tests pin how each value type
- * renders, including the accepted lossy two-decimal formatting of a float width.
+ * renders: a CSS length passes through, and a bare number is read as pixels.
  ******************************************/
 
 // columnWidthTable builds a Table whose single column carries the given
@@ -231,22 +231,28 @@ func columnWidthTable(t *testing.T, width any) string {
 	return result
 }
 
-// A string width (e.g. a percentage) is rendered verbatim onto the header cell.
+// A string width that is already a CSS length is rendered verbatim onto the header cell.
 func TestDrawColumnWidth_String(t *testing.T) {
-	assert.Contains(t, columnWidthTable(t, "50%"), `style="width; 50%"`)
+	assert.Contains(t, columnWidthTable(t, "50%"), `style="width:50%"`)
+	assert.Contains(t, columnWidthTable(t, "12rem"), `style="width:12rem"`)
 }
 
-// An integer width is rendered as a plain integer (no decimals).
+// An integer width is a bare number, so it is rendered in pixels.
 func TestDrawColumnWidth_Integer(t *testing.T) {
-	assert.Contains(t, columnWidthTable(t, 200), `style="width; 200"`)
+	assert.Contains(t, columnWidthTable(t, 200), `style="width:200px"`)
 }
 
-// A float width is rendered with two decimal places.  This is lossy (rosetta's
-// convert.StringOk formats floats to two decimals), which is acceptable for a
-// sub-pixel column width.  Pinned so a future rosetta change is caught.
-func TestDrawColumnWidth_FloatIsTwoDecimals(t *testing.T) {
-	assert.Contains(t, columnWidthTable(t, 33.333), `style="width; 33.33"`)
-	assert.Contains(t, columnWidthTable(t, float64(150)), `style="width; 150.00"`)
+// A float width is rendered in pixels through rosetta's convert.String, which rounds
+// a fraction to two decimals and writes a whole number without any.  Pinned so a
+// future rosetta change is caught.
+func TestDrawColumnWidth_Float(t *testing.T) {
+	assert.Contains(t, columnWidthTable(t, 33.333), `style="width:33.33px"`)
+	assert.Contains(t, columnWidthTable(t, float64(150)), `style="width:150px"`)
+}
+
+// A string that holds only a number is read as pixels, the same as a numeric width.
+func TestDrawColumnWidth_NumericString(t *testing.T) {
+	assert.Contains(t, columnWidthTable(t, "120"), `style="width:120px"`)
 }
 
 // When the column carries no "column-width" option, the header cell gets no width
